@@ -4,7 +4,7 @@ Write notes in a controlled form of English, find out which sentences a computer
 
 The language is **Attempto Controlled English (ACE)**: a small, strict subset of English that has exactly one meaning per sentence. `ace-linting` is a linter and question-answering layer on top of two existing ACE tools, which it downloads on first use and does not include: **APE**, the parser, and **RACE**, the reasoner (both from the Attempto group at the University of Zurich).
 
-> **Status: early.** It is tested (a few hundred tests, plus a browser self-test) but it is not published to npm yet, and it has been used by very few people. Treat it as a tool for learning and experiments.
+> **Status: early.** It has 185 automated tests and an in-browser self-test, but it is not published to npm yet, the repository is private, and very few people have used it. Treat it as a tool for learning and experiments.
 
 ## What it looks like
 
@@ -20,10 +20,10 @@ Every customer who inserts a card is happy.
 
 ## Try the demo
 
-You need Node 22.12 or later.
+You need Node 22.12 or later, and access to the repository (it is private: sign in to GitHub with `gh auth login` or use your own credentials).
 
 ```bash
-git clone --recurse-submodules <repository-url> ace-linting
+git clone --recurse-submodules https://github.com/ericmikkelsen/ace-linting.git
 cd ace-linting
 npm install
 npm run dev:demo          # open http://localhost:5173/
