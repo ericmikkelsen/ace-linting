@@ -7,3 +7,4 @@ lexicon/oewn/oewn.jsonl
 lexicon/oewn/skipped.txt
 dist-browser/
 demo-dist/
+*.tgz
