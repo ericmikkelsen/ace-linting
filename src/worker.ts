@@ -32,7 +32,8 @@ port.onMessage(async (req) => {
       port.post({ id: req.id, ok: true, type: "init" });
     } else if (req.type === "lint") {
       if (!engine) throw new Error("worker not initialised");
-      port.post({ id: req.id, ok: true, type: "lint", diagnostics: engine.lint(req.text) });
+      const r = engine.parse(req.text);
+      port.post({ id: req.id, ok: true, type: "lint", diagnostics: r.diagnostics, parsed: r.parsed });
     } else if (req.type === "ask") {
       if (!engine) throw new Error("worker not initialised");
       port.post({ id: req.id, ok: true, type: "ask", raw: engine.ask(req.text, req.question) });

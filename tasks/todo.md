@@ -16,6 +16,6 @@
   - [ ] L0 [done: docs/lexicon-sources.md; frames from VerbNet 3.4] | L1 [done: 160-entry CC0 core in lexicon/core, loader + template tests] | L2 [done: npm run build:lexicon validates against APE, writes lexicon/dist/lexicon.pl + PROVENANCE.md] | L3 [done: scripts/ingest-oewn.ts + OEWN 2025 + VerbNet 3.4; all plain lemmas: 73,847 validated entries, loads in about 0.6 s; notices in lexicon/NOTICE.md] | L4 gate: Wiktionary/NULEX enrichment | L5 user add/remove | L6 license pack
 - [ ] Small fix: for APE's "interpreted as a proper name" warning, make our message say so instead of "Unknown or unsupported word" (src/diagnostics.ts)
 - [ ] Task 4b: question synonyms and suggestions (design written: docs/question-synonyms.md; build after Task 4)
-- [ ] Task 6: extension hooks
+- [x] Task 6: extension hooks. `ace.use(plugin)` (afterParse, diagnostics prefixed with the plugin name, errors isolated, unsubscribe), `ace.parse(text)` returning objects/events with ranges and resolved pronouns, and the optional `typeCheck(schema)` plugin; docs in docs/plugins.md. 82 tests pass.
 - [ ] Task 7: browser package + demo
 - [ ] Task 8: license compliance + release prep

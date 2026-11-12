@@ -1,4 +1,5 @@
-import type { ApeMessage, Diagnostic } from "./types.ts";
+import type { ApeMessage, Diagnostic, ParsedText } from "./types.ts";
+import { buildParsed } from "./parsed.ts";
 import { toDiagnostics } from "./diagnostics.ts";
 import { TIME_STUB } from "./glue.ts";
 import type { RawAnswer } from "./ask.ts";
@@ -31,6 +32,8 @@ export type EntryMessage = { severity: "error" | "warning"; message: string };
 
 export type Engine = {
   lint(text: string): Diagnostic[];
+  /** Diagnostics plus what APE understood (objects, events). */
+  parse(text: string): { diagnostics: Diagnostic[]; parsed: ParsedText };
   /** Add APE lexicon terms (one per line, each ending in a period). Returns how many were read and any messages APE logged. */
   addEntries(prologText: string): { count: number; messages: EntryMessage[] };
   /** Ask RACE. `text` and `question` must already be valid ACE. */
@@ -75,7 +78,7 @@ export async function createEngine(input: EngineInput, factory: SwiplFactory): P
   if (!run(`consult('${APE_DIR}/parser/ace_to_drs')`).success) throw new Error("APE failed to load");
   if (!run("consult('/ace/glue/ace_glue')").success) throw new Error("glue failed to load");
 
-  const cache = new Map<string, Diagnostic[]>();
+  const cache = new Map<string, { diagnostics: Diagnostic[]; parsed: ParsedText }>();
   let raceLoaded = false;
   const ensureRace = () => {
     if (raceLoaded) return;
@@ -85,6 +88,21 @@ export async function createEngine(input: EngineInput, factory: SwiplFactory): P
     if (!run("consult('/race/time_stub')").success) throw new Error("RACE time-limit stub failed to load");
     if (!run(`consult('${RACE_DIR}/race')`).success) throw new Error("RACE failed to load");
     raceLoaded = true;
+  };
+  const parse = (text: string) => {
+    const hit = cache.get(text);
+    if (hit) return hit;
+    const r = run("ace_glue:lint_rows(Text, Messages, Tokens, Objects, Events, Properties)", { Text: text });
+    if (!r.success) throw new Error("APE did not return a result");
+    const messages = (r["Messages"] as unknown[][]).map(toApeMessage);
+    const apeTokens = (r["Tokens"] as unknown[][]).map((s) => s.map(String));
+    const result = {
+      diagnostics: toDiagnostics(text, messages, { apeTokens }),
+      parsed: buildParsed(text, { objects: r["Objects"] as unknown[][], events: r["Events"] as unknown[][], properties: r["Properties"] as unknown[][] }, apeTokens),
+    };
+    cache.set(text, result);
+    if (cache.size > 100) cache.delete(cache.keys().next().value as string);
+    return result;
   };
   return {
     ask(text, question) {
@@ -107,17 +125,7 @@ export async function createEngine(input: EngineInput, factory: SwiplFactory): P
       });
       return { count: Number(r["Count"]), messages };
     },
-    lint(text) {
-      const hit = cache.get(text);
-      if (hit) return hit;
-      const r = run("ace_glue:lint_rows(Text, Messages, Tokens)", { Text: text });
-      if (!r.success) throw new Error("APE did not return a result");
-      const messages = (r["Messages"] as unknown[][]).map(toApeMessage);
-      const apeTokens = (r["Tokens"] as unknown[][]).map((s) => s.map(String));
-      const diagnostics = toDiagnostics(text, messages, { apeTokens });
-      cache.set(text, diagnostics);
-      if (cache.size > 100) cache.delete(cache.keys().next().value as string);
-      return diagnostics;
-    },
+    lint: (text) => parse(text).diagnostics,
+    parse,
   };
 }

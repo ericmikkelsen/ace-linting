@@ -61,3 +61,33 @@ export type AskResult =
   /** The text or the question is not valid ACE. */
   | { status: "invalid"; text: Diagnostic[]; question: Diagnostic[] }
   | { status: "timeout" };
+
+/** An argument of an event: a noun phrase from the text, a proper name, or an adjective ("is happy"). */
+export type ParsedObject = { kind: "object"; id: string; noun: string; sentence: number; range: Range };
+export type ParsedProperty = { kind: "property"; id: string; adjective: string; sentence: number; range: Range };
+export type ParsedArg = ParsedObject | ParsedProperty | { kind: "name"; name: string };
+
+/** One verb with its arguments. `range` is the verb token; for "be" the object can be a property. */
+export type ParsedEvent = {
+  verb: string;
+  sentence: number;
+  range: Range;
+  subject?: ParsedArg;
+  object?: ParsedArg;
+  indirect?: ParsedArg;
+};
+
+/**
+ * What APE understood. Pronouns and "the X" are already resolved, so an event's subject can be an object
+ * introduced in an earlier sentence (same `id`, with that sentence's range).
+ */
+export type ParsedText = { text: string; sentences: SentenceSpan[]; objects: ParsedObject[]; events: ParsedEvent[] };
+
+/**
+ * A plugin adds diagnostics after APE has parsed a text. It cannot change or remove APE's own diagnostics.
+ * Returned diagnostics get the plugin's name as a code prefix ("types/subject") unless they already have it.
+ */
+export type Plugin = {
+  name: string;
+  afterParse?(parsed: ParsedText): Diagnostic[] | void | Promise<Diagnostic[] | void>;
+};

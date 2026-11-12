@@ -3,16 +3,38 @@
 export const GLUE = String.raw`% ace-linting glue: turns APE results into plain rows that JavaScript can read.
 % Copyright ace-linting contributors. Licensed under GPL-3.0-only (see LICENSE).
 
-:- module(ace_glue, [lint_rows/3, add_entries/3, ask_rows/5]).
+:- module(ace_glue, [lint_rows/6, add_entries/3, ask_rows/5]).
 
-%% lint_rows(+Text, -MessageRows, -TokenRows)
+%% lint_rows(+Text, -MessageRows, -TokenRows, -ObjectRows, -EventRows, -PropertyRows)
 %  MessageRows: [[Importance, Scope, Sentence, Token, Subject, Description], ...]
 %  (Sentence and Token are numbers, or '' when APE gives none)
 %  TokenRows: one list of tokens per sentence, with APE's start marker removed.
-lint_rows(Text, MessageRows, TokenRows) :-
-    ace_to_drs:acetext_to_drs(Text, Sentences, _Trees, _Drs, Messages),
+%  ObjectRows: [[Id, Noun, Sentence, Token], ...]   PropertyRows: [[Id, Adjective, Sentence, Token], ...]
+%  EventRows: [[Verb, [ArgId, ...], Sentence, Token], ...]
+%  Ids are atoms: rN for a discourse referent, n:Name for a proper name.
+lint_rows(Text, MessageRows, TokenRows, ObjectRows, EventRows, PropertyRows) :-
+    ace_to_drs:acetext_to_drs(Text, Sentences, _Trees, Drs, Messages),
     maplist(message_row, Messages, MessageRows),
-    maplist(token_row, Sentences, TokenRows).
+    maplist(token_row, Sentences, TokenRows),
+    drs_facts(Drs, ObjectRows, EventRows, PropertyRows).
+
+drs_facts(Drs, Objects, Events, Properties) :-
+    copy_term(Drs, D),
+    numbervars(D, 0, _),
+    findall([Id, Noun, S, T],
+            ( sub_term(P-S/T, D), compound(P), P =.. [object, Ref, Noun|_], ref_id(Ref, Id) ),
+            Objects),
+    findall([Id, Adj, S, T],
+            ( sub_term(P-S/T, D), compound(P), P =.. [property, Ref, Adj|_], ref_id(Ref, Id) ),
+            Properties),
+    findall([Verb, ArgIds, S, T],
+            ( sub_term(P-S/T, D), compound(P), P =.. [predicate, _Event, Verb|Args], Args \== [],
+              maplist(ref_id, Args, ArgIds) ),
+            Events).
+
+ref_id('$VAR'(N), Id) :- !, format(atom(Id), 'r~w', [N]).
+ref_id(named(Name), Id) :- !, format(atom(Id), 'n:~w', [Name]).
+ref_id(Other, Id) :- format(atom(Id), '~w', [Other]).
 
 message_row(message(Importance, Scope, Pos, Subject, Description),
             [Importance, Scope, Sentence, Token, Subject, Description]) :-

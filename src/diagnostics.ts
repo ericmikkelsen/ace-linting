@@ -13,11 +13,11 @@ function whole(sentence: SentenceSpan | undefined, text: string): Range {
   return sentence ? sentence.range : { start: 0, end: text.length };
 }
 
-function shift(sentence: SentenceSpan, token: TokenSpan): Range {
+export function shift(sentence: SentenceSpan, token: TokenSpan): Range {
   return { start: sentence.range.start + token.range.start, end: sentence.range.start + token.range.end };
 }
 
-function agrees(ours: TokenSpan[], theirs: ApeSentenceTokens | undefined): boolean {
+export function agrees(ours: TokenSpan[], theirs: ApeSentenceTokens | undefined): boolean {
   if (!theirs) return true; // nothing to check against
   if (ours.length !== theirs.length) return false;
   return ours.every((t, i) => t.text.toLowerCase() === String(theirs[i]).toLowerCase());

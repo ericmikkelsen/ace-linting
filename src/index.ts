@@ -1,4 +1,4 @@
-import type { AskResult, Diagnostic } from "./types.ts";
+import type { AskResult, Diagnostic, ParsedText, Plugin } from "./types.ts";
 import type { FileMap } from "./engine.ts";
 import type { WorkerRequest, WorkerResponse } from "./protocol.ts";
 import { loadUpstream, webFetch, memoryStore } from "./upstream.ts";
@@ -9,7 +9,8 @@ import { selectRelevant } from "./select.ts";
 import { toAskResult } from "./ask.ts";
 import type { EntryMessage } from "./engine.ts";
 
-export type { Diagnostic, DiagnosticCode, Range, Severity, ApeMessage, AskResult, Proof, ProofAxiom, Substitution, Unmatched } from "./types.ts";
+export type { Diagnostic, DiagnosticCode, Range, Severity, ApeMessage, AskResult, Proof, ProofAxiom, Substitution, Unmatched, ParsedText, ParsedEvent, ParsedArg, ParsedObject, ParsedProperty, Plugin } from "./types.ts";
+export { typeCheck, type TypeSchema } from "./plugins/types.ts";
 export type { FileMap } from "./engine.ts";
 export { debounce } from "./debounce.ts";
 export { DEFAULT_BASE_URLS, UpstreamError, loadUpstream, type UpstreamManifest } from "./upstream.ts";
@@ -62,7 +63,15 @@ export type CallOptions = { signal?: AbortSignal };
 export type AddResult = { count: number; messages: EntryMessage[] };
 
 export type Ace = {
+  /** APE's diagnostics plus those added by plugins. */
   lint(text: string, options?: CallOptions): Promise<LintResult>;
+  /** What APE understood: objects and events with character ranges and resolved pronouns. */
+  parse(text: string, options?: CallOptions): Promise<ParsedText>;
+  /**
+   * Add a plugin. Its diagnostics are added to APE's on every `lint`; it cannot change or remove APE's.
+   * Returns a function that removes it. Two plugins cannot share a name.
+   */
+  use(plugin: Plugin): () => void;
   /**
    * Answer a question from the text with RACE. Invalid ACE is reported as `invalid` with diagnostics;
    * a question that cannot be proved is `unknown`, never "no".
@@ -230,12 +239,37 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
   };
   if (options.lexicon?.length) await addEntries(options.lexicon);
 
-  const lint = async (text: string, opts: CallOptions = {}): Promise<LintResult> => {
+  const fromWorker = async (text: string, opts: CallOptions) => {
     const res = await call({ type: "lint", text }, opts);
     if (!res.ok) throw new AceError(res.error);
     if (res.type !== "lint") throw new AceError("unexpected worker response");
     assertDiagnostics(res.diagnostics);
-    return { diagnostics: res.diagnostics };
+    return res;
+  };
+
+  const plugins = new Map<string, Plugin>();
+  const pluginProblem = (text: string, message: string): Diagnostic => ({
+    severity: "warning", code: "ace-linting/plugin-error", message, range: { start: 0, end: text.length }, sentence: 0, approximate: true,
+  });
+  const runPlugins = async (parsed: ParsedText): Promise<Diagnostic[]> => {
+    const out: Diagnostic[] = [];
+    for (const plugin of [...plugins.values()]) {
+      if (!plugin.afterParse) continue;
+      try {
+        const added = (await plugin.afterParse(parsed)) ?? [];
+        assertDiagnostics(added);
+        if (added.some((d) => d.range.end > parsed.text.length)) throw new AceError("a diagnostic range is outside the text");
+        for (const d of added) out.push({ ...d, code: d.code.startsWith(`${plugin.name}/`) ? d.code : `${plugin.name}/${d.code}` });
+      } catch (e) {
+        out.push(pluginProblem(parsed.text, `Plugin '${plugin.name}' failed: ${e instanceof Error ? e.message : String(e)}`));
+      }
+    }
+    return out;
+  };
+
+  const lint = async (text: string, opts: CallOptions = {}): Promise<LintResult> => {
+    const res = await fromWorker(text, opts);
+    return { diagnostics: [...res.diagnostics, ...(await runPlugins(res.parsed))] };
   };
 
   const hasErrors = (ds: Diagnostic[]) => ds.some((d) => d.severity === "error");
@@ -257,9 +291,18 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
   return {
     addEntries,
     lint,
+    async parse(text, opts = {}) {
+      return (await fromWorker(text, opts)).parsed;
+    },
+    use(plugin) {
+      if (plugins.has(plugin.name)) throw new AceError(`a plugin named '${plugin.name}' is already in use`);
+      plugins.set(plugin.name, plugin);
+      return () => { if (plugins.get(plugin.name) === plugin) plugins.delete(plugin.name); };
+    },
     async ask({ text, question, timeoutMs = 5000, select }) {
       if (!race) throw new AceError("ask needs RACE's files: pass raceFiles or raceDir to createAce");
-      const [t, q] = await Promise.all([lint(text), lint(question)]);
+      // Only APE's own diagnostics decide whether the input is valid ACE; plugin findings (such as type warnings) do not block a question.
+      const [t, q] = await Promise.all([fromWorker(text, {}), fromWorker(question, {})]);
       if (hasErrors(t.diagnostics) || hasErrors(q.diagnostics)) {
         return { status: "invalid", text: t.diagnostics.filter((d) => d.severity === "error"), question: q.diagnostics.filter((d) => d.severity === "error") };
       }
