@@ -1,7 +1,9 @@
 import type { AskResult, Diagnostic, ParsedText, Plugin, SynonymRule } from "./types.ts";
 import type { FileMap } from "./engine.ts";
 import type { WorkerRequest, WorkerResponse } from "./protocol.ts";
-import { loadUpstream, webFetch, memoryStore } from "./upstream.ts";
+import { loadUpstream, webFetch, memoryStore, type Store } from "./upstream.ts";
+import { idbStore } from "./idb-store.ts";
+import { BROWSER_BUILD } from "./env.ts";
 import { UPSTREAM } from "./upstream-manifest.ts";
 import { toApeLines, checkEntry, type LexEntry } from "./lexicon.ts";
 import { splitSentences } from "./tokenize.ts";
@@ -24,8 +26,9 @@ export { parseEntries, toApeLines, templatesFor, LexiconError } from "./lexicon.
 export type { EntryMessage } from "./engine.ts";
 
 // Node-only helpers (file system) are loaded on demand so browser bundles never pull in node:fs.
-const nodeHelpers = () => import("./node.ts");
-const inNode = () => typeof process !== "undefined" && !!process.versions?.node;
+const nodeHelpers = (): Promise<typeof import("./node.ts")> =>
+  BROWSER_BUILD ? Promise.reject(new Error("Node helpers are not available in the browser build")) : import("./node.ts");
+const inNode = () => !BROWSER_BUILD && typeof process !== "undefined" && !!process.versions?.node;
 
 export type AceOptions = {
   /** APE's `prolog/` files, keyed by relative path. When neither this nor `apeDir` is given, the pinned upstream is fetched and verified. */
@@ -121,10 +124,9 @@ type WorkerLike = {
 };
 
 async function startWorker(): Promise<WorkerLike> {
-  const isSource = import.meta.url.endsWith(".ts");
-  const url = new URL(isSource ? "./worker.ts" : "./worker.js", import.meta.url);
   if (typeof (globalThis as { Worker?: unknown }).Worker !== "undefined" && typeof (globalThis as { window?: unknown }).window !== "undefined") {
-    const w = new Worker(url, { type: "module" });
+    // Browser. This exact `new Worker(new URL(...))` form is what bundlers such as Vite recognise and build the worker from.
+    const w = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
     return {
       post: (m) => w.postMessage(m),
       onMessage: (cb) => { w.onmessage = (e) => cb(e.data as WorkerResponse); },
@@ -132,6 +134,9 @@ async function startWorker(): Promise<WorkerLike> {
       terminate: async () => { w.terminate(); },
     };
   }
+  if (BROWSER_BUILD) throw new AceError("Web Workers are not available here");
+  const isSource = import.meta.url.endsWith(".ts");
+  const url = new URL(isSource ? "./worker.ts" : "./worker.js", import.meta.url);
   const { Worker: NodeWorker } = await import("node:worker_threads");
   const w = new NodeWorker(url);
   return {
@@ -160,6 +165,11 @@ function assertDiagnostics(value: unknown): asserts value is Diagnostic[] {
   if (!ok) throw new AceError("worker returned malformed diagnostics");
 }
 
+/** Verified upstream files persist in IndexedDB when the browser has it, and live in memory otherwise. */
+function browserStore(): Store {
+  return typeof indexedDB !== "undefined" ? idbStore() : memoryStore();
+}
+
 class CallTimeout extends Error {}
 
 /** Above this many sentences, `ask` first tries only the sentences related to the question. */
@@ -173,7 +183,7 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
     const node = inNode() ? await nodeHelpers() : undefined;
     const fetched = await loadUpstream(UPSTREAM, {
       fetch: webFetch,
-      store: node ? node.fileStore(options.upstream?.cacheDir ?? node.defaultCacheDir()) : memoryStore(),
+      store: node ? node.fileStore(options.upstream?.cacheDir ?? node.defaultCacheDir()) : browserStore(),
       ...(options.upstream?.baseUrls ? { baseUrls: options.upstream.baseUrls } : {}),
     }).catch((e: unknown) => { throw new AceError(`could not get APE and RACE: ${e instanceof Error ? e.message : String(e)}`); });
     ape = fetched.ape;

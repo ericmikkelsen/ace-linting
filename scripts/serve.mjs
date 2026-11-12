@@ -23,7 +23,9 @@ http.createServer((req, res) => {
       race: list(path.join(root, "vendor/RACE/prolog")),
     }));
   }
-  const file = path.join(root, decodeURIComponent(url.pathname));
+  // stand-in for GitHub: /upstream/Attempto/{APE|RACE}/{commit}/{root}/{path} -> vendor/{APE|RACE}/{root}/{path}
+  const up = /^\/upstream\/Attempto\/(APE|RACE)\/[0-9a-f]+\/([^/]+)\/(.+)$/.exec(decodeURIComponent(url.pathname));
+  const file = up ? path.join(root, "vendor", up[1], up[2], up[3]) : path.join(root, decodeURIComponent(url.pathname));
   if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.statusCode = 404; return res.end("not found"); }
   res.setHeader("content-type", types[path.extname(file)] || "application/octet-stream");
   fs.createReadStream(file).pipe(res);

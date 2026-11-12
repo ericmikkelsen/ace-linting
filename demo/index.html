@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ace-linting demo</title>
+  <style>
+    :root { --bg: #fff; --fg: #1d1d1f; --muted: #6b6b70; --line: #d8d8dc; --err: #d1242f; --warn: #b7791f; --ok: #1a7f37; --accent: #0b57d0; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #16161a; --fg: #ececf0; --muted: #9a9aa3; --line: #34343c; --err: #ff7b72; --warn: #e3b341; --ok: #56d364; --accent: #8ab4f8; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+    main { max-width: 46rem; margin: 0 auto; padding: 1.5rem 16px 4rem; }
+    h1 { margin: 0 0 .25rem; font-size: 1.4rem; }
+    .note, .muted { color: var(--muted); font-size: .9rem; }
+    .editor { position: relative; margin-top: 1rem; }
+    #backdrop, #notes { margin: 0; padding: .75rem; border: 1px solid var(--line); border-radius: 8px; font: 1rem/1.5 ui-monospace, monospace; white-space: pre-wrap; word-wrap: break-word; width: 100%; min-height: 9rem; }
+    #backdrop { position: absolute; inset: 0; color: transparent; overflow: hidden; pointer-events: none; }
+    #notes { position: relative; background: transparent; color: var(--fg); resize: vertical; }
+    mark { color: transparent; background: none; text-decoration: underline wavy; text-underline-offset: 3px; }
+    mark.error { text-decoration-color: var(--err); }
+    mark.warning { text-decoration-color: var(--warn); }
+    ul { padding-left: 1.1rem; }
+    li.error::marker { color: var(--err); } li.warning::marker { color: var(--warn); }
+    form { display: flex; gap: .5rem; margin-top: 1rem; }
+    input { flex: 1; min-width: 0; padding: .55rem .7rem; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+    button { padding: .5rem .9rem; font: inherit; color: var(--bg); background: var(--accent); border: 0; border-radius: 8px; cursor: pointer; }
+    button.small { padding: .15rem .55rem; font-size: .85rem; }
+    #answer { margin-top: 1rem; padding: .75rem 1rem; border: 1px solid var(--line); border-radius: 8px; min-height: 3rem; }
+    .answered { color: var(--ok); font-weight: 600; } .unknown { color: var(--warn); font-weight: 600; } .bad { color: var(--err); font-weight: 600; }
+    code { font: .9em ui-monospace, monospace; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>ace-linting</h1>
+  <p class="note">Attempto Controlled English, checked and answered in your browser. Your text never leaves this page.</p>
+  <p id="status" class="muted" role="status">Starting…</p>
+
+  <div class="editor">
+    <div id="backdrop" aria-hidden="true"></div>
+    <textarea id="notes" spellcheck="false" aria-label="Notes in ACE" rows="7"></textarea>
+  </div>
+  <ul id="diagnostics" aria-label="Diagnostics"></ul>
+
+  <form id="ask">
+    <input id="question" aria-label="Question" value="Is John happy?" autocomplete="off">
+    <button type="submit">Ask</button>
+  </form>
+  <section id="answer" aria-live="polite"><span class="muted">Ask a question about the notes above.</span></section>
+
+  <details>
+    <summary>Synonym rules (<span id="rule-count">0</span>)</summary>
+    <ul id="rules"></ul>
+  </details>
+</main>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

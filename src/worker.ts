@@ -2,6 +2,7 @@
 import { createEngine, type Engine, type SwiplFactory } from "./engine.ts";
 import { GLUE } from "./glue.ts";
 import type { WorkerRequest, WorkerResponse } from "./protocol.ts";
+import { BROWSER_BUILD } from "./env.ts";
 
 type Port = { post(msg: WorkerResponse): void; onMessage(cb: (msg: WorkerRequest) => void): void };
 
@@ -10,6 +11,7 @@ async function getPort(): Promise<Port> {
     const scope = globalThis as unknown as { postMessage(m: unknown): void; onmessage: ((e: MessageEvent) => void) | null };
     return { post: (m) => scope.postMessage(m), onMessage: (cb) => { scope.onmessage = (e) => cb(e.data as WorkerRequest); } };
   }
+  if (BROWSER_BUILD) throw new Error("worker.ts must run inside a Web Worker");
   const { parentPort } = await import("node:worker_threads");
   if (!parentPort) throw new Error("worker.ts must run inside a worker");
   const p = parentPort;

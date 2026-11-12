@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>built bundle smoke test (running)</title></head>
+<body>
+<!-- Checks the built library (dist-browser/) in a real browser. Serve the repo root with `node scripts/serve.mjs`, open /demo/built-smoke.html. -->
+<pre id="out">running…</pre>
+<script type="module">
+  import { createAce } from "/dist-browser/ace-linting.js";
+  const out = document.getElementById("out");
+  try {
+    const ace = await createAce({ upstream: { baseUrls: [`${location.origin}/upstream/{repo}/{commit}/{root}/{path}`] } });
+    const lint = await ace.lint("Every customer inserts.");
+    const ask = await ace.ask({ text: "John is a customer. John inserts a card. Every customer who inserts a card is happy.", question: "Is John happy?" });
+    await ace.dispose();
+    const ok = lint.diagnostics.length === 1 && ask.status === "answered";
+    document.title = ok ? "PASS built bundle" : "FAIL built bundle";
+    out.textContent = `${document.title}\nlint: ${JSON.stringify(lint.diagnostics.map((d) => d.code))}\nask: ${ask.status}`;
+  } catch (e) {
+    document.title = "FAIL built bundle";
+    out.textContent = `${document.title}\n${e && e.stack || e}`;
+  }
+  window.__done = true;
+</script>
+</body>
+</html>

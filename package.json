@@ -12,13 +12,17 @@
     "build": "tsc -p . --noEmit false",
     "pin:upstream": "node scripts/pin-upstream.ts",
     "fetch:upstream": "node scripts/fetch-upstream.ts",
-    "build:synonyms": "node scripts/build-synonyms.ts"
+    "build:synonyms": "node scripts/build-synonyms.ts",
+    "dev:demo": "vite",
+    "build:demo": "vite build",
+    "build:browser": "vite build --config vite.lib.config.ts"
   },
   "dependencies": {
     "swipl-wasm": "8.3.0"
   },
   "devDependencies": {
     "@types/node": "26.6.6",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vite": "8.3.8"
   }
 }
