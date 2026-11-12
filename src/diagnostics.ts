@@ -1,0 +1,92 @@
+import type { ApeMessage, Diagnostic, Range, SentenceSpan, TokenSpan } from "./types.ts";
+import { splitSentences, tokenizeSentence } from "./tokenize.ts";
+
+/** Tokens of one sentence as APE reports them (APE's list starts with a '^' marker, which callers should drop). */
+export type ApeSentenceTokens = string[];
+
+export type MapOptions = {
+  /** APE's own token lists per sentence, used to cross-check our tokenizer. If a sentence disagrees, we fall back to whole-sentence ranges for it. */
+  apeTokens?: ApeSentenceTokens[];
+};
+
+function whole(sentence: SentenceSpan | undefined, text: string): Range {
+  return sentence ? sentence.range : { start: 0, end: text.length };
+}
+
+function shift(sentence: SentenceSpan, token: TokenSpan): Range {
+  return { start: sentence.range.start + token.range.start, end: sentence.range.start + token.range.end };
+}
+
+function agrees(ours: TokenSpan[], theirs: ApeSentenceTokens | undefined): boolean {
+  if (!theirs) return true; // nothing to check against
+  if (ours.length !== theirs.length) return false;
+  return ours.every((t, i) => t.text.toLowerCase() === String(theirs[i]).toLowerCase());
+}
+
+/** Convert APE messages into diagnostics with character ranges into `text`. */
+export function toDiagnostics(text: string, messages: ApeMessage[], options: MapOptions = {}): Diagnostic[] {
+  const sentences = splitSentences(text);
+  const tokenCache = new Map<number, TokenSpan[]>();
+  const tokensOf = (s: SentenceSpan) => {
+    let t = tokenCache.get(s.index);
+    if (!t) tokenCache.set(s.index, (t = tokenizeSentence(s.text)));
+    return t;
+  };
+
+  const out: Diagnostic[] = [];
+  for (const m of messages) {
+    const sentence = m.sentence !== null ? sentences[m.sentence - 1] : undefined;
+    const base = {
+      severity: m.importance,
+      code: `ape/${m.scope}`,
+      sentence: sentence ? sentence.index : 0,
+    } as const;
+    const suggestion = m.scope === "word" ? m.description || undefined : undefined;
+
+    const fallback = (message: string): Diagnostic => ({
+      ...base,
+      message,
+      range: whole(sentence, text),
+      ...(suggestion ? { suggestion } : {}),
+      approximate: true,
+    });
+
+    if (!sentence) {
+      out.push(fallback(m.subject || m.description));
+      continue;
+    }
+    const tokens = tokensOf(sentence);
+    const trusted = agrees(tokens, options.apeTokens?.[sentence.index - 1]);
+
+    if (m.scope === "word") {
+      // APE gives the word but no token number: underline every occurrence in the sentence.
+      const word = m.subject.toLowerCase();
+      const hits = tokens.filter((t) => t.text.toLowerCase() === word);
+      const message = `Unknown or unsupported word '${m.subject}'.`;
+      if (!trusted || hits.length === 0) out.push(fallback(message));
+      else for (const t of hits) out.push({ ...base, message, range: shift(sentence, t), ...(suggestion ? { suggestion } : {}) });
+      continue;
+    }
+
+    if (m.token === null) {
+      out.push(fallback(m.subject || m.description));
+      continue;
+    }
+    // What APE puts in `subject` and `description` depends on the scope.
+    const message =
+      m.scope === "sentence" ? "This is not valid ACE at or after this point." : m.subject || m.description;
+    const hint = m.scope === "anaphor" || m.scope === "pronoun" ? m.description : undefined;
+    if (!trusted) {
+      out.push({ ...fallback(message), ...(hint ? { suggestion: hint } : {}) });
+      continue;
+    }
+    // APE can report the position just past the last token (something is missing): point at the last token.
+    const token = tokens[Math.min(m.token, tokens.length) - 1];
+    if (!token) {
+      out.push({ ...fallback(message), ...(hint ? { suggestion: hint } : {}) });
+      continue;
+    }
+    out.push({ ...base, message, range: shift(sentence, token), ...(hint ? { suggestion: hint } : {}) });
+  }
+  return out;
+}

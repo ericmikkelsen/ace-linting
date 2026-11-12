@@ -1,0 +1,7 @@
+[submodule "vendor/APE"]
+	path = vendor/APE
+	url = https://github.com/Attempto/APE.git
+[submodule "vendor/RACE"]
+	path = vendor/RACE
+	url = https://github.com/Attempto/RACE.git
+	ignore = all

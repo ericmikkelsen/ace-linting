@@ -1,0 +1,7 @@
+<!doctype html><meta charset="utf-8"><title>ace-linting browser spike</title>
+<pre id="out">running...</pre>
+<script>
+  const w = new Worker("/demo/spike-worker.js");
+  w.onmessage = (e) => { document.getElementById("out").textContent = JSON.stringify(e.data, null, 2); window.__done = e.data; };
+  w.onerror = (e) => { document.getElementById("out").textContent = "worker error: " + e.message; window.__done = { ok: false, error: e.message }; };
+</script>

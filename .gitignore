@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.cache/
+lexicon/oewn/oewn.jsonl
+lexicon/oewn/skipped.txt

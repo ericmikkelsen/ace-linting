@@ -1,0 +1,20 @@
+{
+  "name": "ace-linting",
+  "version": "0.0.0",
+  "description": "Lint Attempto Controlled English and answer questions with RACE, in Node and the browser",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "spike": "node scripts/spike.mjs",
+    "test": "tsc --noEmit && node --test tests/*.test.ts",
+    "build:lexicon": "node scripts/build-lexicon.ts"
+  },
+  "dependencies": {
+    "swipl-wasm": "8.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2"
+  }
+}

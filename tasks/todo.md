@@ -1,0 +1,21 @@
+# Todo
+
+- [x] Spec updated for TypeScript types
+- [x] Task 0: git init, submodules (APE, RACE), package.json, LICENSE (GPL-3.0), tasks/plan.md
+- [x] Task 0: THIRD_PARTY_LICENSES.md drafted
+- [x] Clex removed (submodule, scripts, docs); clean custom lexicon replaces it
+- [ ] Optional: ask Attempto where APE's small built-in lexicon entries came from
+- [x] Task 1: spike in Node (APE, RACE) -> docs/spike-results.md
+- [x] Task 1: spike in a browser Web Worker
+- [ ] Fetch-and-verify step (scripts/upstream.json, node fetch, browser fetch + hash check, IndexedDB cache)
+- [x] Task 2: tokenizer + diagnostics mapping + output types (src/types.ts, tokenize.ts, diagnostics.ts; 14 tests)
+- [x] Task 3: lint API. `createAce({apeDir|apeFiles})` runs APE in a Node worker thread (browser worker path written but untested until Task 7), `lint(text, {signal})`, `dispose()`, malformed-response check, `debounce` helper; works from source and from `dist/`. 28 tests pass.
+  - Note: the plan's per-sentence prefix cache is deferred; a whole-text cache is enough until measured otherwise.
+- [ ] Task 4: ask API
+- [ ] Task 5: clean custom lexicon. Detailed plan in docs/lexicon-plan.md:
+  - [ ] L0 [done: docs/lexicon-sources.md; frames from VerbNet 3.4] | L1 [done: 160-entry CC0 core in lexicon/core, loader + template tests] | L2 [done: npm run build:lexicon validates against APE, writes lexicon/dist/lexicon.pl + PROVENANCE.md] | L3 [done: scripts/ingest-oewn.ts + OEWN 2025 + VerbNet 3.4; all plain lemmas: 73,847 validated entries, loads in about 0.6 s; notices in lexicon/NOTICE.md] | L4 gate: Wiktionary/NULEX enrichment | L5 user add/remove | L6 license pack
+- [ ] Small fix: for APE's "interpreted as a proper name" warning, make our message say so instead of "Unknown or unsupported word" (src/diagnostics.ts)
+- [ ] Task 4b: question synonyms and suggestions (design written: docs/question-synonyms.md; build after Task 4)
+- [ ] Task 6: extension hooks
+- [ ] Task 7: browser package + demo
+- [ ] Task 8: license compliance + release prep

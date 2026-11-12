@@ -1,0 +1,11 @@
+{
+  "_note": "Hand-written by the ace-linting authors (CC0 1.0): past participles for verbs whose forms WordNet's exception list does not settle. Facts about English inflection, authored here, not copied from another source.",
+  "verbs": {
+    "cut": { "pp": "cut" }, "set": { "pp": "set" }, "hit": { "pp": "hit" }, "put": { "pp": "put" },
+    "let": { "pp": "let" }, "shut": { "pp": "shut" }, "split": { "pp": "split" }, "slit": { "pp": "slit" },
+    "feed": { "pp": "fed" }, "ring": { "pp": "rung" }, "sing": { "pp": "sung" }, "swim": { "pp": "swum" },
+    "drink": { "pp": "drunk" }, "spring": { "pp": "sprung" }, "spit": { "pp": "spat" }, "stink": { "pp": "stunk" },
+    "grip": { "pp": "gripped" }, "swap": { "pp": "swapped" }, "coordinate": { "pp": "coordinated" },
+    "bus": { "pp": "bused" }, "bed": { "pp": "bedded" }, "trammel": { "pp": "trammeled" }
+  }
+}
