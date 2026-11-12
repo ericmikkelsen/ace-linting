@@ -43,8 +43,22 @@ export type SentenceSpan = { index: number; text: string; range: Range };
 
 export type TokenSpan = { text: string; range: Range };
 
-/** A numbered sentence from the user's text that took part in a proof. `sentence` counts sentences in the text passed to `ask` (1-based). */
-export type ProofAxiom = { sentence: number; text: string };
+/** A sentence that took part in a proof: one of the user's own, or a synonym rule. */
+export type ProofAxiom = {
+  /** 1-based sentence number in the text passed to `ask`; 0 for a line that came from a synonym rule. */
+  sentence: number;
+  text: string;
+  /** Set when this line is a compiled synonym rule rather than one of the user's sentences. */
+  synonym?: SynonymRule;
+};
+
+/**
+ * Two words the user says mean the same thing, compiled into an ACE sentence that appears in proofs.
+ * `from => to` (add `both: true` for the reverse too). Verbs need a valency because the two shapes differ.
+ */
+export type SynonymRule =
+  | { class: "noun" | "adjective"; from: string; to: string; both?: boolean }
+  | { class: "verb"; valency: "intransitive" | "transitive"; from: string; to: string; both?: boolean; fromSg3?: string; toSg3?: string };
 
 /** What a question word stood for in a proof, e.g. `who = John`. */
 export type Substitution = { word: string; value: string };

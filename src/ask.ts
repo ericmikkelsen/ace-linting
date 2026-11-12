@@ -1,4 +1,4 @@
-import type { AskResult, ProofAxiom, Substitution, Unmatched } from "./types.ts";
+import type { AskResult, ProofAxiom, Substitution, SynonymRule, Unmatched } from "./types.ts";
 
 /** What the Prolog side returns for one question: proofs as lines of text, unmatched words, and RACE's own messages. */
 export type RawAnswer = { proofs: string[][]; whyNot: string[]; messages: string[] };
@@ -9,8 +9,9 @@ const SUBSTITUTION = /^Substitution: (\S+) = (.*)$/s;
 /**
  * Turn RACE's raw output into an AskResult. `sentenceMap[i]` is the original (1-based) sentence number of the
  * i-th sentence that was sent to RACE, so proofs refer to the user's own numbering even when only some sentences were sent.
+ * An entry can instead be a synonym rule, for a sentence we appended on the user's behalf.
  */
-export function toAskResult(raw: RawAnswer, sentenceMap: number[]): Extract<AskResult, { status: "answered" | "unknown" }> {
+export function toAskResult(raw: RawAnswer, sentenceMap: (number | SynonymRule)[]): Extract<AskResult, { status: "answered" | "unknown" }> {
   if (raw.proofs.length === 0) {
     const unmatched: Unmatched[] = raw.whyNot.map((entry) => {
       const at = entry.indexOf(": ");
@@ -36,7 +37,8 @@ export function toAskResult(raw: RawAnswer, sentenceMap: number[]): Extract<AskR
       const numbered = NUMBERED.exec(line);
       if (numbered) {
         const n = Number(numbered[1]);
-        axioms.push({ sentence: sentenceMap[n - 1] ?? n, text: numbered[2]! });
+        const origin = sentenceMap[n - 1] ?? n;
+        axioms.push(typeof origin === "number" ? { sentence: origin, text: numbered[2]! } : { sentence: 0, text: numbered[2]!, synonym: origin });
       }
     }
     return { axioms, substitutions };

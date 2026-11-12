@@ -1,15 +1,16 @@
-import type { AskResult, Diagnostic, ParsedText, Plugin } from "./types.ts";
+import type { AskResult, Diagnostic, ParsedText, Plugin, SynonymRule } from "./types.ts";
 import type { FileMap } from "./engine.ts";
 import type { WorkerRequest, WorkerResponse } from "./protocol.ts";
 import { loadUpstream, webFetch, memoryStore } from "./upstream.ts";
 import { UPSTREAM } from "./upstream-manifest.ts";
 import { toApeLines, checkEntry, type LexEntry } from "./lexicon.ts";
 import { splitSentences } from "./tokenize.ts";
-import { selectRelevant } from "./select.ts";
+import { selectRelevant, contentStems, stem } from "./select.ts";
+import { compileRule, ruleKey, SynonymError } from "./synonyms.ts";
 import { toAskResult } from "./ask.ts";
 import type { EntryMessage } from "./engine.ts";
 
-export type { Diagnostic, DiagnosticCode, Range, Severity, ApeMessage, AskResult, Proof, ProofAxiom, Substitution, Unmatched, ParsedText, ParsedEvent, ParsedArg, ParsedObject, ParsedProperty, Plugin } from "./types.ts";
+export type { Diagnostic, DiagnosticCode, Range, Severity, ApeMessage, AskResult, Proof, ProofAxiom, Substitution, Unmatched, ParsedText, ParsedEvent, ParsedArg, ParsedObject, ParsedProperty, Plugin, SynonymRule } from "./types.ts";
 export { typeCheck, type TypeSchema } from "./plugins/types.ts";
 export type { FileMap } from "./engine.ts";
 export { debounce } from "./debounce.ts";
@@ -72,6 +73,16 @@ export type Ace = {
    * Returns a function that removes it. Two plugins cannot share a name.
    */
   use(plugin: Plugin): () => void;
+  /**
+   * Synonym rules the user owns. Each compiles to an ACE sentence that is appended to the text for `ask`
+   * (when its words matter to the question), so it shows up in the proof. Nothing is inferred silently.
+   */
+  synonyms: {
+    /** Checks the rule's words with APE first; rejects with the reason when they are not valid ACE. */
+    add(rule: SynonymRule): Promise<void>;
+    remove(rule: SynonymRule): void;
+    list(): SynonymRule[];
+  };
   /**
    * Answer a question from the text with RACE. Invalid ACE is reported as `invalid` with diagnostics;
    * a question that cannot be proved is `unknown`, never "no".
@@ -275,7 +286,7 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
   const hasErrors = (ds: Diagnostic[]) => ds.some((d) => d.severity === "error");
 
   /** One RACE call with a deadline. Returns undefined on timeout (after restarting the worker). */
-  const askOnce = async (text: string, question: string, sentenceMap: number[], timeoutMs: number) => {
+  const askOnce = async (text: string, question: string, sentenceMap: (number | SynonymRule)[], timeoutMs: number) => {
     try {
       const res = await call({ type: "ask", text, question }, { timeoutMs });
       if (!res.ok) throw new AceError(res.error);
@@ -288,9 +299,47 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
     }
   };
 
+  const rules = new Map<string, SynonymRule>();
+  const addRule = async (rule: SynonymRule) => {
+    let sentences: string[];
+    try {
+      sentences = compileRule(rule);
+    } catch (e) {
+      throw new AceError(e instanceof SynonymError ? e.message : String(e));
+    }
+    for (const sentence of sentences) {
+      const { diagnostics } = await fromWorker(sentence, {});
+      const errors = diagnostics.filter((d) => d.severity === "error");
+      if (errors.length) {
+        const words = errors.filter((d) => d.code === "ape/word").map((d) => `'${sentence.slice(d.range.start, d.range.end)}'`);
+        throw new AceError(`the rule ${rule.from} => ${rule.to} is not valid ACE (${sentence})${words.length ? `: unknown ${[...new Set(words)].join(", ")}` : ""}`);
+      }
+    }
+    rules.set(ruleKey(rule), rule);
+  };
+  /** The rule sentences that matter given what is being asked, following chains (A=>B, B=>C) to a fixed point. */
+  const relevantRules = (textAndQuestion: string): { sentence: string; rule: SynonymRule }[] => {
+    const known = contentStems(textAndQuestion);
+    const chosen = new Set<SynonymRule>();
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const rule of rules.values()) {
+        if (chosen.has(rule)) continue;
+        if (known.has(stem(rule.from)) || known.has(stem(rule.to))) {
+          chosen.add(rule);
+          known.add(stem(rule.from));
+          known.add(stem(rule.to));
+          grew = true;
+        }
+      }
+    }
+    return [...chosen].flatMap((rule) => compileRule(rule).map((sentence) => ({ sentence, rule })));
+  };
+
   return {
     addEntries,
     lint,
+    synonyms: { add: addRule, remove: (rule) => { rules.delete(ruleKey(rule)); }, list: () => [...rules.values()] },
     async parse(text, opts = {}) {
       return (await fromWorker(text, opts)).parsed;
     },
@@ -312,11 +361,21 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
       const chosen = select ? select(sentences, question) : sentences.length > SELECT_ABOVE ? selectRelevant(sentences, question) : all;
       const sendText = (idx: number[]) => idx.map((i) => sentences[i]!).join(" ");
       const numbers = (idx: number[]) => idx.map((i) => i + 1);
+      // Synonym rules that matter for this attempt are appended after the user's sentences, so their numbering is unchanged.
+      const attempt = (idx: number[]) => {
+        const extras = relevantRules(`${sendText(idx)} ${question}`);
+        return {
+          text: [sendText(idx), ...extras.map((x) => x.sentence)].filter(Boolean).join(" "),
+          map: [...numbers(idx), ...extras.map((x) => x.rule)],
+        };
+      };
 
-      let result = await askOnce(sendText(chosen), question, numbers(chosen), timeoutMs);
+      const first = attempt(chosen);
+      let result = await askOnce(first.text, question, first.map, timeoutMs);
       // The narrowed text may have dropped a needed sentence: retry once with everything before saying "unknown".
       if (result?.status === "unknown" && chosen.length < all.length) {
-        result = await askOnce(sendText(all), question, numbers(all), timeoutMs);
+        const second = attempt(all);
+        result = await askOnce(second.text, question, second.map, timeoutMs);
       }
       return result ?? { status: "timeout" };
     },

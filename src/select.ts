@@ -8,7 +8,7 @@ const STOP = new Set(
 );
 
 /** A crude stem: enough to match "purchase" with "purchases" and "insert" with "inserted". */
-function stem(word: string): string {
+export function stem(word: string): string {
   const w = word.toLowerCase();
   if (w.length > 4 && w.endsWith("ies")) return `${w.slice(0, -3)}y`;
   if (w.length > 4 && w.endsWith("ing")) return w.slice(0, -3);
@@ -18,7 +18,7 @@ function stem(word: string): string {
   return w;
 }
 
-function contentStems(text: string): Set<string> {
+export function contentStems(text: string): Set<string> {
   const out = new Set<string>();
   for (const m of text.matchAll(/[\p{L}][\p{L}'-]*/gu)) {
     const w = m[0].toLowerCase();

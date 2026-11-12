@@ -1,6 +1,6 @@
 # Design: synonyms and suggestions for questions
 
-Status: DRAFT for review. Nothing is built; it depends on the Ask API (Task 4). Facts marked "verified" come from running RACE under `swipl-wasm` on 2026-11-11 with our generated lexicon loaded.
+Status: S1 and S2 are built (`ace.synonyms`, proofs labeled); S3 to S6 are still design. The Ask API (Task 4) is done. Facts marked "verified" come from running RACE under `swipl-wasm` on 2026-11-11 with our generated lexicon loaded.
 
 ## Problem
 
