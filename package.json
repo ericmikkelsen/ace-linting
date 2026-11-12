@@ -9,7 +9,9 @@
     "spike": "node scripts/spike.mjs",
     "test": "tsc --noEmit && node --test tests/*.test.ts",
     "build:lexicon": "node scripts/build-lexicon.ts",
-    "build": "tsc -p . --noEmit false"
+    "build": "tsc -p . --noEmit false",
+    "pin:upstream": "node scripts/pin-upstream.ts",
+    "fetch:upstream": "node scripts/fetch-upstream.ts"
   },
   "dependencies": {
     "swipl-wasm": "8.3.0"

@@ -7,7 +7,7 @@
 - [ ] Optional: ask Attempto where APE's small built-in lexicon entries came from
 - [x] Task 1: spike in Node (APE, RACE) -> docs/spike-results.md
 - [x] Task 1: spike in a browser Web Worker
-- [ ] Fetch-and-verify step (scripts/upstream.json, node fetch, browser fetch + hash check, IndexedDB cache)
+- [x] Fetch-and-verify step. `src/upstream.ts` loads APE and RACE from GitHub at pinned commits (raw.githubusercontent.com, then jsDelivr), checks every file's sha256, caches only verified bytes (Node: `~/.cache/ace-linting`), and `createAce()` uses it when no local files are given. `npm run pin:upstream` records commits and hashes into `src/upstream-manifest.ts`; `npm run fetch:upstream` pre-downloads. Real download of 63 APE + 9 RACE files verified. 66 tests pass. Left for Task 7: a persistent IndexedDB store for browsers (they use an in-memory store for now).
 - [x] Task 2: tokenizer + diagnostics mapping + output types (src/types.ts, tokenize.ts, diagnostics.ts; 14 tests)
 - [x] Task 3: lint API. `createAce({apeDir|apeFiles})` runs APE in a Node worker thread (browser worker path written but untested until Task 7), `lint(text, {signal})`, `dispose()`, malformed-response check, `debounce` helper; works from source and from `dist/`. 28 tests pass.
   - Note: the plan's per-sentence prefix cache is deferred; a whole-text cache is enough until measured otherwise.

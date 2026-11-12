@@ -15,3 +15,30 @@ export function readTree(dir: string): FileMap {
   walk(dir);
   return files;
 }
+
+import os from "node:os";
+import type { Store } from "./upstream.ts";
+
+/** A folder-backed store for verified upstream files. Writes are atomic so a crash never leaves a half-written file. */
+export function fileStore(dir: string): Store {
+  return {
+    async get(key) {
+      try {
+        return new Uint8Array(await fs.promises.readFile(path.join(dir, key)));
+      } catch {
+        return undefined;
+      }
+    },
+    async put(key, bytes) {
+      const file = path.join(dir, key);
+      await fs.promises.mkdir(path.dirname(file), { recursive: true });
+      const tmp = `${file}.${process.pid}.tmp`;
+      await fs.promises.writeFile(tmp, bytes);
+      await fs.promises.rename(tmp, file);
+    },
+  };
+}
+
+export function defaultCacheDir(): string {
+  return process.env["ACE_LINTING_CACHE"] ?? path.join(os.homedir(), ".cache", "ace-linting");
+}

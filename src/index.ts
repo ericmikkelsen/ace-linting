@@ -1,7 +1,8 @@
 import type { AskResult, Diagnostic } from "./types.ts";
 import type { FileMap } from "./engine.ts";
 import type { WorkerRequest, WorkerResponse } from "./protocol.ts";
-import { readTree } from "./node.ts";
+import { loadUpstream, webFetch, memoryStore } from "./upstream.ts";
+import { UPSTREAM } from "./upstream-manifest.ts";
 import { toApeLines, checkEntry, type LexEntry } from "./lexicon.ts";
 import { splitSentences } from "./tokenize.ts";
 import { selectRelevant } from "./select.ts";
@@ -11,13 +12,25 @@ import type { EntryMessage } from "./engine.ts";
 export type { Diagnostic, DiagnosticCode, Range, Severity, ApeMessage, AskResult, Proof, ProofAxiom, Substitution, Unmatched } from "./types.ts";
 export type { FileMap } from "./engine.ts";
 export { debounce } from "./debounce.ts";
+export { DEFAULT_BASE_URLS, UpstreamError, loadUpstream, type UpstreamManifest } from "./upstream.ts";
 export type { LexEntry, Gender, Valency } from "./lexicon.ts";
 export { parseEntries, toApeLines, templatesFor, LexiconError } from "./lexicon.ts";
 export type { EntryMessage } from "./engine.ts";
 
+// Node-only helpers (file system) are loaded on demand so browser bundles never pull in node:fs.
+const nodeHelpers = () => import("./node.ts");
+const inNode = () => typeof process !== "undefined" && !!process.versions?.node;
+
 export type AceOptions = {
-  /** APE's `prolog/` files, keyed by relative path. Fetched from upstream by the fetch-and-verify step. */
+  /** APE's `prolog/` files, keyed by relative path. When neither this nor `apeDir` is given, the pinned upstream is fetched and verified. */
   apeFiles?: FileMap;
+  /** Where the pinned upstream files come from and where verified copies are kept. Used only when no local files are given. */
+  upstream?: {
+    /** Node: folder for verified files (default `~/.cache/ace-linting`, or `$ACE_LINTING_CACHE`). */
+    cacheDir?: string;
+    /** URL templates tried in order; see DEFAULT_BASE_URLS. */
+    baseUrls?: string[];
+  };
   /** Node only: path to a local APE checkout's `prolog/` folder (development). */
   apeDir?: string;
   /** RACE's `prolog/` files. Needed for `ask`. Fetched from upstream by the fetch-and-verify step. */
@@ -124,9 +137,19 @@ class CallTimeout extends Error {}
 const SELECT_ABOVE = 20;
 
 export async function createAce(options: AceOptions = {}): Promise<Ace> {
-  const ape = options.apeFiles ?? (options.apeDir ? readTree(options.apeDir) : undefined);
-  if (!ape) throw new AceError("createAce needs apeFiles or apeDir (APE's prolog/ files)");
-  const race = options.raceFiles ?? (options.raceDir ? readTree(options.raceDir) : undefined);
+  let ape = options.apeFiles ?? (options.apeDir ? (await nodeHelpers()).readTree(options.apeDir) : undefined);
+  let race = options.raceFiles ?? (options.raceDir ? (await nodeHelpers()).readTree(options.raceDir) : undefined);
+  if (!ape) {
+    // No local files: fetch the pinned upstream, checking every file against its recorded hash.
+    const node = inNode() ? await nodeHelpers() : undefined;
+    const fetched = await loadUpstream(UPSTREAM, {
+      fetch: webFetch,
+      store: node ? node.fileStore(options.upstream?.cacheDir ?? node.defaultCacheDir()) : memoryStore(),
+      ...(options.upstream?.baseUrls ? { baseUrls: options.upstream.baseUrls } : {}),
+    }).catch((e: unknown) => { throw new AceError(`could not get APE and RACE: ${e instanceof Error ? e.message : String(e)}`); });
+    ape = fetched.ape;
+    race ??= fetched.race;
+  }
 
   let worker!: WorkerLike;
   let nextId = 1;

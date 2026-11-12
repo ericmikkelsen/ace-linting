@@ -38,8 +38,11 @@ test("aborting a call in flight rejects it and leaves the instance usable", asyn
   assert.deepEqual((await ace.lint("A man waits.")).diagnostics, []);
 });
 
-test("createAce without APE files fails clearly", async () => {
-  await assert.rejects(createAce({}), AceError);
+test("createAce without local files reports clearly when the upstream cannot be reached", async () => {
+  await assert.rejects(
+    createAce({ upstream: { cacheDir: "/nonexistent-ace-linting-cache-for-test", baseUrls: ["http://127.0.0.1:1/{path}"] } }),
+    (e: unknown) => e instanceof AceError && /could not get APE and RACE/.test(e.message),
+  );
 });
 
 test("after dispose, calls reject", async () => {
