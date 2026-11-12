@@ -64,7 +64,7 @@
     "dev:demo": "vite",
     "build:demo": "vite build",
     "build:browser": "vite build --config vite.lib.config.ts",
-    "prepack": "npm run build && npm run build:browser"
+    "prepare": "npm run build && npm run build:browser"
   },
   "dependencies": {
     "swipl-wasm": "8.3.0"
