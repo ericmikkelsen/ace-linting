@@ -3,7 +3,7 @@
 export const GLUE = String.raw`% ace-linting glue: turns APE results into plain rows that JavaScript can read.
 % Copyright ace-linting contributors. Licensed under GPL-3.0-only (see LICENSE).
 
-:- module(ace_glue, [lint_rows/3, add_entries/3]).
+:- module(ace_glue, [lint_rows/3, add_entries/3, ask_rows/5]).
 
 %% lint_rows(+Text, -MessageRows, -TokenRows)
 %  MessageRows: [[Importance, Scope, Sentence, Token, Subject, Description], ...]
@@ -39,6 +39,19 @@ add_entries(Text, Count, MessageRows) :-
     error_logger:clear_messages,   % do not leak lexicon warnings into later parses
     maplist(message_row, Messages, MessageRows).
 
+%% ask_rows(+Axioms, +Query, -ProofRows, -WhyNotRows, -MessageTexts)
+%  Runs RACE. ProofRows: one list of text lines per proof. WhyNotRows: words RACE could not match.
+ask_rows(Axioms, Query, ProofRows, WhyNotRows, MessageTexts) :-
+    race:answer_query(Axioms, Query, [], Messages, _RunTime, Proofs, WhyNot),
+    maplist(proof_row, Proofs, ProofRows),
+    maplist(token_atom, WhyNot, WhyNotRows),
+    maplist(message_text, Messages, MessageTexts).
+
+proof_row(proof(Lines, _Auxiliary), Atoms) :- maplist(token_atom, Lines, Atoms).
+
+message_text(message(_, _, _, Subject, Description), Text) :-
+    format(atom(Text), '~w: ~w', [Subject, Description]).
+
 read_entries(In, Entries) :-
     read_term(In, Term, []),
     (   Term == end_of_file
@@ -46,4 +59,10 @@ read_entries(In, Entries) :-
     ;   Entries = [Term|Rest],
         read_entries(In, Rest)
     ).
+`;
+
+// RACE uses call_with_time_limit/2 from library(time), which swipl-wasm does not include.
+// We run without an in-Prolog limit and enforce timeouts by terminating the worker instead.
+export const TIME_STUB = String.raw`:- meta_predicate user:call_with_time_limit(+, 0).
+user:call_with_time_limit(_Time, Goal) :- once(Goal).
 `;

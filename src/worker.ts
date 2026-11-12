@@ -28,11 +28,14 @@ let engine: Engine | undefined;
 port.onMessage(async (req) => {
   try {
     if (req.type === "init") {
-      engine = await createEngine({ ape: req.ape, glue: GLUE }, await swiplFactory());
+      engine = await createEngine({ ape: req.ape, ...(req.race ? { race: req.race } : {}), glue: GLUE }, await swiplFactory());
       port.post({ id: req.id, ok: true, type: "init" });
     } else if (req.type === "lint") {
       if (!engine) throw new Error("worker not initialised");
       port.post({ id: req.id, ok: true, type: "lint", diagnostics: engine.lint(req.text) });
+    } else if (req.type === "ask") {
+      if (!engine) throw new Error("worker not initialised");
+      port.post({ id: req.id, ok: true, type: "ask", raw: engine.ask(req.text, req.question) });
     } else if (req.type === "addEntries") {
       if (!engine) throw new Error("worker not initialised");
       const r = engine.addEntries(req.prologText);

@@ -1,5 +1,7 @@
 import type { ApeMessage, Diagnostic } from "./types.ts";
 import { toDiagnostics } from "./diagnostics.ts";
+import { TIME_STUB } from "./glue.ts";
+import type { RawAnswer } from "./ask.ts";
 
 /** Files keyed by their path relative to the upstream folder (for APE: the contents of its `prolog/` folder). */
 export type FileMap = Map<string, Uint8Array>;
@@ -7,7 +9,9 @@ export type FileMap = Map<string, Uint8Array>;
 export type EngineInput = {
   /** APE's `prolog/` folder, fetched from upstream (not shipped by us). */
   ape: FileMap;
-  /** Our own glue file (`prolog/ace_glue.pl`). */
+  /** RACE's `prolog/` folder. Loaded on the first question; without it `ask` is unavailable. */
+  race?: FileMap;
+  /** Our own glue file (src/glue.ts). */
   glue: string;
 };
 
@@ -29,9 +33,13 @@ export type Engine = {
   lint(text: string): Diagnostic[];
   /** Add APE lexicon terms (one per line, each ending in a period). Returns how many were read and any messages APE logged. */
   addEntries(prologText: string): { count: number; messages: EntryMessage[] };
+  /** Ask RACE. `text` and `question` must already be valid ACE. */
+  ask(text: string, question: string): RawAnswer;
 };
 
-const APE_DIR = "/ace/ape";
+// RACE expects APE next to its own folder (../ape/ from /race/prolog), so both live under /race.
+const APE_DIR = "/race/ape";
+const RACE_DIR = "/race/prolog";
 
 function writeFiles(swipl: SwiplModule, base: string, files: FileMap) {
   for (const [rel, bytes] of files) {
@@ -68,7 +76,27 @@ export async function createEngine(input: EngineInput, factory: SwiplFactory): P
   if (!run("consult('/ace/glue/ace_glue')").success) throw new Error("glue failed to load");
 
   const cache = new Map<string, Diagnostic[]>();
+  let raceLoaded = false;
+  const ensureRace = () => {
+    if (raceLoaded) return;
+    if (!input.race) throw new Error("RACE files were not provided (raceFiles or raceDir)");
+    writeFiles(swipl, RACE_DIR, input.race);
+    swipl.FS.writeFile("/race/time_stub.pl", TIME_STUB);
+    if (!run("consult('/race/time_stub')").success) throw new Error("RACE time-limit stub failed to load");
+    if (!run(`consult('${RACE_DIR}/race')`).success) throw new Error("RACE failed to load");
+    raceLoaded = true;
+  };
   return {
+    ask(text, question) {
+      ensureRace();
+      const r = run("ace_glue:ask_rows(Axioms, Query, Proofs, WhyNot, Messages)", { Axioms: text, Query: question });
+      if (!r.success) throw new Error("RACE did not return a result");
+      return {
+        proofs: (r["Proofs"] as unknown[][]).map((lines) => lines.map(String)),
+        whyNot: (r["WhyNot"] as unknown[]).map(String),
+        messages: (r["Messages"] as unknown[]).map(String),
+      };
+    },
     addEntries(prologText) {
       const r = run("ace_glue:add_entries(Text, Count, Messages)", { Text: prologText });
       if (!r.success) throw new Error("APE rejected the lexicon entries");

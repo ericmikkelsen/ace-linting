@@ -42,3 +42,22 @@ export type ApeMessage = {
 export type SentenceSpan = { index: number; text: string; range: Range };
 
 export type TokenSpan = { text: string; range: Range };
+
+/** A numbered sentence from the user's text that took part in a proof. `sentence` counts sentences in the text passed to `ask` (1-based). */
+export type ProofAxiom = { sentence: number; text: string };
+
+/** What a question word stood for in a proof, e.g. `who = John`. */
+export type Substitution = { word: string; value: string };
+
+export type Proof = { axioms: ProofAxiom[]; substitutions: Substitution[] };
+
+/** A word of the question that RACE could not match, e.g. `{ wordClass: "adjective", word: "happy" }`. */
+export type Unmatched = { wordClass: string; word: string };
+
+export type AskResult =
+  | { status: "answered"; answers: Substitution[]; proofs: Proof[]; messages: string[] }
+  /** Nothing can be proved from the text. This never means "no". */
+  | { status: "unknown"; unmatched: Unmatched[]; messages: string[] }
+  /** The text or the question is not valid ACE. */
+  | { status: "invalid"; text: Diagnostic[]; question: Diagnostic[] }
+  | { status: "timeout" };
