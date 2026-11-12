@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import type { SynonymRule } from "./types.ts";
 import { addS } from "./inflect.ts";
 

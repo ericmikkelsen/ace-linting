@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Build the synonym index from Open English WordNet (in the git-ignored cache) for words in our generated lexicon.
 // Run `npm run build:lexicon` first. Usage: node scripts/build-synonyms.ts [--oewn .cache/sources/oewn] [--out lexicon/dist/synonyms.json]
 import fs from "node:fs";

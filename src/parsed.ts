@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import type { ParsedArg, ParsedEvent, ParsedObject, ParsedProperty, ParsedText, Range, SentenceSpan, TokenSpan } from "./types.ts";
 import { splitSentences, tokenizeSentence } from "./tokenize.ts";
 import { agrees, shift } from "./diagnostics.ts";

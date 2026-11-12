@@ -5,17 +5,63 @@
   "license": "GPL-3.0-only",
   "type": "module",
   "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "browser": "./dist-browser/ace-linting.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./lexicon/core.jsonl": "./lexicon/core/core.jsonl",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "dist-browser",
+    "!dist-browser/assets/dist-*.js.map",
+    "src",
+    "scripts",
+    "docs",
+    "licenses",
+    "lexicon/core",
+    "lexicon/licenses",
+    "lexicon/NOTICE.md",
+    "lexicon/oewn/overrides.json",
+    "lexicon/oewn/oewn.jsonl",
+    "lexicon/dist/synonyms.json",
+    "LICENSE",
+    "THIRD_PARTY_LICENSES.md",
+    "README.md",
+    "tsconfig.json",
+    "tsconfig.build.json",
+    "vite.config.ts",
+    "vite.lib.config.ts"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "keywords": [
+    "controlled-natural-language",
+    "attempto",
+    "ace",
+    "linter",
+    "reasoning",
+    "webassembly"
+  ],
   "scripts": {
     "spike": "node scripts/spike.mjs",
     "test": "tsc --noEmit && node --test tests/*.test.ts",
     "build:lexicon": "node scripts/build-lexicon.ts",
-    "build": "tsc -p . --noEmit false",
+    "build": "tsc -p tsconfig.build.json",
     "pin:upstream": "node scripts/pin-upstream.ts",
     "fetch:upstream": "node scripts/fetch-upstream.ts",
     "build:synonyms": "node scripts/build-synonyms.ts",
     "dev:demo": "vite",
     "build:demo": "vite build",
-    "build:browser": "vite build --config vite.lib.config.ts"
+    "build:browser": "vite build --config vite.lib.config.ts",
+    "prepack": "npm run build && npm run build:browser"
   },
   "dependencies": {
     "swipl-wasm": "8.3.0"

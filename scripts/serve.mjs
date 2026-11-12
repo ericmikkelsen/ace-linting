@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Dev-only static server for the browser spike and demo. Serves the repo root plus /manifest.json.
 import http from "node:http";
 import fs from "node:fs";

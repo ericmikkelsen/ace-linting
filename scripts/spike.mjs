@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Spike: can APE (and later RACE) run under swipl-wasm in Node?
 import SWIPL from "swipl-wasm";
 import fs from "node:fs";

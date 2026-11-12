@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import SWIPL from "swipl-wasm";

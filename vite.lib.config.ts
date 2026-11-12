@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Builds the browser bundle of the library into dist-browser/ (an ES module plus its worker).
 import { defineConfig } from "vite";
 

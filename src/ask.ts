@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import type { AskResult, ProofAxiom, Substitution, SynonymRule, Unmatched } from "./types.ts";
 
 /** What the Prolog side returns for one question: proofs as lines of text, unmatched words, and RACE's own messages. */

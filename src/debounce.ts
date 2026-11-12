@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 /** Call `fn` once after `ms` of quiet; each new call restarts the wait and returns a promise for the eventual result. */
 export function debounce<A extends unknown[], R>(fn: (...args: A) => R | Promise<R>, ms: number) {
   let timer: ReturnType<typeof setTimeout> | undefined;

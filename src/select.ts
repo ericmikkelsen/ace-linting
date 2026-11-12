@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Choose which sentences to send to RACE. This only narrows the search; RACE still proves the answer,
 // and the caller retries with every sentence when the narrowed text gives "unknown".
 

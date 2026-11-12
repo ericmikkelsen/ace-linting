@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Dev server and build for the demo (demo/). The library bundle has its own config: vite.lib.config.ts.
 import fs from "node:fs";
 import path from "node:path";

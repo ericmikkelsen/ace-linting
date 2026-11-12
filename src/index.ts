@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import type { AskResult, Diagnostic, ParsedText, Plugin, SynonymRule } from "./types.ts";
 import type { FileMap } from "./engine.ts";
 import type { WorkerRequest, WorkerResponse } from "./protocol.ts";

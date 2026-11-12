@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import type { Suggestion, SynonymRule, Unmatched } from "./types.ts";
 import { setsOf, type SynonymIndex } from "./synonym-index.ts";
 import { contentStems, stem } from "./select.ts";

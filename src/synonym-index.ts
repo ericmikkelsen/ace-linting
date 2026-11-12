@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // A compact index of WordNet synonym sets, used only to *suggest* synonym rules (never to answer silently).
 
 /** Each set is [definition, members]; the maps give, per word, the sets it belongs to (indices into `synsets`). */

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Turn Open English WordNet (and VerbNet frames) into normalized lexicon entries (JSON lines).
 // Inputs live in the git-ignored cache (.cache/sources). Output: lexicon/oewn/oewn.jsonl (generated; validated later by build-lexicon).
 // Usage: node scripts/ingest-oewn.ts [--oewn .cache/sources/oewn] [--verbnet .cache/sources/verbnet/src/verbnet3.4]

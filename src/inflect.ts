@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Regular English inflection rules. When a rule cannot be trusted, it returns undefined and the entry must give the form itself.
 
 const VOWELS = /[aeiou]/;

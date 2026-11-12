@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Public output types for ace-linting. Everything that crosses the worker boundary is one of these.
 
 /** A half-open character range into the original text: text.slice(start, end). */

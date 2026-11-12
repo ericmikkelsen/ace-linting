@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Build the lexicon: read source files, validate every entry against a real APE, write the generated lexicon and a provenance report.
 // Usage: node scripts/build-lexicon.ts [--ape vendor/APE/prolog] [--out lexicon/dist]
 import fs from "node:fs";

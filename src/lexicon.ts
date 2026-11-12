@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import { addS, regularPp } from "./inflect.ts";
 
 export type Gender = "neutr" | "masc" | "fem" | "human";

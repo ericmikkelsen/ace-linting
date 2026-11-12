@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Fetch APE and RACE from their upstream repositories at pinned commits and verify every file against a recorded hash.
 // We ship none of their code: this runs on the user's machine (or in their browser) at first use.
 import type { FileMap } from "./engine.ts";

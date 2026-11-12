@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC0-1.0
 // ace-linting core vocabulary. Written by hand for this project and dedicated to the public domain under CC0 1.0.
 // Do not add entries copied or derived from any other source here; those go in separate files with their own licenses.
 // One JSON object per line. Classes: noun, noun-mass, verb, adjective, adverb.

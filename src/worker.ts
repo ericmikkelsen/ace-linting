@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Runs APE off the main thread. Works as a browser Web Worker or a Node worker thread.
 import { createEngine, type Engine, type SwiplFactory } from "./engine.ts";
 import { GLUE } from "./glue.ts";

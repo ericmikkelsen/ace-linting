@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Our Prolog glue, embedded so it works the same from source, from dist, and in browsers.
 // Licensed GPL-3.0-only (see LICENSE).
 export const GLUE = String.raw`% ace-linting glue: turns APE results into plain rows that JavaScript can read.

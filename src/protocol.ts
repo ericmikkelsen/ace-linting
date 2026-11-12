@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import type { Diagnostic, ParsedText } from "./types.ts";
 import type { FileMap, EntryMessage } from "./engine.ts";
 import type { RawAnswer } from "./ask.ts";

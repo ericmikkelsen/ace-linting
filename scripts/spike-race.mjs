@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Spike part 2: RACE answering questions in swipl-wasm (Node).
 import SWIPL from "swipl-wasm";
 import fs from "node:fs";

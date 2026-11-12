@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import { createAce, parseEntries, debounce, type Ace, type Diagnostic, type AskResult, type SynonymRule } from "../src/index.ts";
 import type { SynonymIndex } from "../src/synonym-index.ts";
 import coreLexicon from "../lexicon/core/core.jsonl?raw";

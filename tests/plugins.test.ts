@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createAce, AceError, typeCheck, type Ace, type Plugin, type TypeSchema, type ParsedText } from "../src/index.ts";

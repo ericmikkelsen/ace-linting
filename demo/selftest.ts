@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 // Runs the main behaviours inside a real browser (Web Worker, IndexedDB, fetch, crypto.subtle).
 // The page title becomes "PASS n/n" or "FAIL ..." and window.__selftest holds the details.
 import { createAce, typeCheck, parseEntries, type Ace } from "../src/index.ts";

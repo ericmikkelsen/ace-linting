@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import type { ApeMessage, Diagnostic, Range, SentenceSpan, TokenSpan } from "./types.ts";
 import { splitSentences, tokenizeSentence } from "./tokenize.ts";
 

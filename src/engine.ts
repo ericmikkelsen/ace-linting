@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import type { ApeMessage, Diagnostic, ParsedText } from "./types.ts";
 import { buildParsed } from "./parsed.ts";
 import { toDiagnostics } from "./diagnostics.ts";
