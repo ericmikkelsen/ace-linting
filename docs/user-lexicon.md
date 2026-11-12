@@ -14,7 +14,7 @@ await ace.lexicon.remove({ class: "noun", lemma: "gadget" });
 ace.lexicon.list();                                 // what is in
 ```
 
-Entry classes and fields: `noun` (optional `plural`, `gender`), `noun-mass`, `verb` (`valency`: intransitive, transitive or ditransitive; optional `sg3`, `pp`, `past`, `prep`), `adjective` and `adverb` (optional `comp`, `sup`). Forms that follow regular English rules are generated, including the simple past: it defaults to the participle (`bought`), and you give `past` only when they differ (`pp: "written", past: "wrote"`) or `past: false` to leave it out. The past is a word of its own, so `John bought a card.` is valid but is not the same fact as `John buys a card.` (see [docs/tense.md](tense.md)). A verb whose past participle might double its last letter (stop, frob) must spell it out; the entry is refused otherwise.
+Entry classes and fields: `noun` (optional `plural`, `gender`), `noun-mass`, `verb` (`valency`: intransitive, transitive or ditransitive; optional `sg3`, `pp`, `past`, `prep`), `adjective` and `adverb` (optional `comp`, `sup`). Forms that follow regular English rules are generated. A verb has no past tense unless you give one: basic ACE has only the present tense, so `John bought a card.` is reported as not ACE. If you want it anyway, give `past` (`past: "bought"`; `pp: "written", past: "wrote"` when they differ); the past is then a word of its own, valid but not the same fact as `John buys a card.` That is an extension of ACE (see [docs/tense.md](tense.md)). A verb whose past participle might double its last letter (stop, frob) must spell it out; the entry is refused otherwise.
 
 ## What `add` does
 

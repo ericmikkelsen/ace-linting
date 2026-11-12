@@ -21,10 +21,7 @@ test("inflection rules", () => {
 test("entries convert to APE terms", () => {
   assert.deepEqual(toApeLines({ class: "noun", lemma: "task" }), ["noun_sg(task, task, neutr).", "noun_pl(tasks, task, neutr)."]);
   assert.deepEqual(toApeLines({ class: "noun", lemma: "person", plural: "people", gender: "human" }), ["noun_sg(person, person, human).", "noun_pl(people, person, human)."]);
-  assert.deepEqual(toApeLines({ class: "verb", lemma: "call", valency: "transitive" }), [
-    "tv_finsg(calls, call).", "tv_infpl(call, call).", "tv_pp(called, call).",
-    "tv_finsg(called, called).", "tv_infpl(called, called).",
-  ]);
+  assert.deepEqual(toApeLines({ class: "verb", lemma: "call", valency: "transitive" }), ["tv_finsg(calls, call).", "tv_infpl(call, call).", "tv_pp(called, call)."]);
   assert.deepEqual(toApeLines({ class: "adjective", lemma: "to-do" }), ["adj_itr('to-do', 'to-do')."]);
 });
 
@@ -87,16 +84,23 @@ test("lexicon warnings do not leak into later lint results", async () => {
   }
 });
 
-// --- past forms (P1 of docs/tense.md): the past is a word of its own
+// --- past forms (docs/tense.md): an opt-in extension; the past is a word of its own
 
-test("a verb gets a past form as a word of its own; the past defaults to the participle", () => {
+test("without a past, a verb has no past form: basic ACE has none", () => {
   const lines = toApeLines({ class: "verb", lemma: "buy", valency: "transitive", pp: "bought" });
+  assert.ok(!lines.some((l) => l.startsWith("tv_finsg(bought")), "no finite form 'bought'");
+  assert.ok(lines.includes("tv_pp(bought, buy)."), "only the passive participle");
+  assert.equal(templatesFor({ class: "verb", lemma: "buy", valency: "transitive", pp: "bought" }).length, 3, "no sample sentence for a past");
+});
+
+test("a verb given a past gets it as a word of its own", () => {
+  const lines = toApeLines({ class: "verb", lemma: "buy", valency: "transitive", pp: "bought", past: "bought" });
   assert.ok(lines.includes("tv_finsg(bought, bought)."));
   assert.ok(lines.includes("tv_infpl(bought, bought)."));
   assert.ok(lines.includes("tv_pp(bought, buy)."), "the passive participle still belongs to the present verb");
 });
 
-test("an explicit past overrides the participle (wrote, written)", () => {
+test("the past can differ from the participle (wrote, written)", () => {
   const lines = toApeLines({ class: "verb", lemma: "write", valency: "transitive", pp: "written", past: "wrote" });
   assert.ok(lines.includes("tv_finsg(wrote, wrote)."));
   assert.ok(lines.includes("tv_pp(written, write)."));
@@ -104,26 +108,22 @@ test("an explicit past overrides the participle (wrote, written)", () => {
 });
 
 test("a verb whose past equals its infinitive gets only the singular form, because the plural already exists", () => {
-  const lines = toApeLines({ class: "verb", lemma: "cut", valency: "transitive", pp: "cut" });
+  const lines = toApeLines({ class: "verb", lemma: "cut", valency: "transitive", pp: "cut", past: "cut" });
   assert.deepEqual(lines.filter((l) => l.startsWith("tv_infpl(cut")), ["tv_infpl(cut, cut)."]);
   assert.ok(lines.includes("tv_finsg(cut, cut)."));
 });
 
 test("ditransitive and intransitive verbs get matching past forms", () => {
-  assert.ok(toApeLines({ class: "verb", lemma: "send", valency: "ditransitive", prep: "to", pp: "sent" }).includes("dv_finsg(sent, sent, to)."));
-  assert.ok(toApeLines({ class: "verb", lemma: "send", valency: "ditransitive", prep: "to", pp: "sent" }).includes("dv_infpl(sent, sent, to)."));
-  const iv = toApeLines({ class: "verb", lemma: "arrive", valency: "intransitive" });
+  const dv = toApeLines({ class: "verb", lemma: "send", valency: "ditransitive", prep: "to", pp: "sent", past: "sent" });
+  assert.ok(dv.includes("dv_finsg(sent, sent, to).") && dv.includes("dv_infpl(sent, sent, to)."));
+  const iv = toApeLines({ class: "verb", lemma: "arrive", valency: "intransitive", past: "arrived" });
   assert.ok(iv.includes("iv_finsg(arrived, arrived).") && iv.includes("iv_infpl(arrived, arrived)."));
 });
 
-test("past: false leaves the past out", () => {
-  const lines = toApeLines({ class: "verb", lemma: "frob", valency: "transitive", pp: "frobbed", past: false });
-  assert.ok(!lines.some((l) => l.includes("frobbed, frobbed")));
-});
-
-test("a bad past form is rejected, and the past has its own sample sentence", () => {
+test("a bad past form is rejected, and a given past has its own sample sentence", () => {
   assert.throws(() => parseEntries('{"class":"verb","lemma":"go","valency":"intransitive","pp":"gone","past":"Went"}'), /past/);
-  const groups = templatesFor({ class: "verb", lemma: "call", valency: "transitive" });
+  assert.throws(() => parseEntries('{"class":"verb","lemma":"go","valency":"intransitive","pp":"gone","past":false}'), /past/);
+  const groups = templatesFor({ class: "verb", lemma: "call", valency: "transitive", past: "called" });
   assert.ok(groups.some((g) => g.includes("A customer called a card.")));
 });
 

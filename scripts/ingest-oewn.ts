@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Turn Open English WordNet (and VerbNet frames) into normalized lexicon entries (JSON lines).
 // Inputs live in the git-ignored cache (.cache/sources). Output: lexicon/oewn/oewn.jsonl (generated; validated later by build-lexicon).
-// Usage: node scripts/ingest-oewn.ts [--oewn .cache/sources/oewn] [--verbnet .cache/sources/verbnet/src/verbnet3.4]
+// Past forms are an opt-in extension of ACE: pass --past-forms to write a `past` on every verb.
+// Usage: node scripts/ingest-oewn.ts [--past-forms] [--oewn .cache/sources/oewn] [--verbnet .cache/sources/verbnet/src/verbnet3.4]
 //        [--nouns N] [--verbs N] [--adjectives N] [--adverbs N]  (default: every plain lowercase lemma)
 import fs from "node:fs";
 import path from "node:path";
@@ -14,6 +15,7 @@ const oewnDir = opt("--oewn", ".cache/sources/oewn");
 const vnDir = opt("--verbnet", ".cache/sources/verbnet/src/verbnet3.4");
 const quota = { noun: +opt("--nouns", "1000000"), verb: +opt("--verbs", "1000000"), adjective: +opt("--adjectives", "1000000"), adverb: +opt("--adverbs", "1000000") };
 const outFile = "lexicon/oewn/oewn.jsonl";
+const pastForms = args.includes("--past-forms");
 
 type Sense = { id: string; subcat?: string[] };
 type PosBody = { sense?: Sense[]; form?: string[] };
@@ -94,11 +96,12 @@ for (const c of pick("v", quota.verb)) {
   pp = split.pp ?? regularPp(c.lemma);
   pp = overrides.verbs[c.lemma]?.pp ?? pp;
   if (pp === undefined) { skipped.push(`verb ${c.lemma}: past participle unclear`); continue; }
-  // The simple past. WordNet lists the irregular forms without saying which is which: with two (wrote, written) the one
-  // that is not the participle is the past; with one (bought) past and participle are the same, which is the default.
-  let past: string | undefined = overrides.verbs[c.lemma]?.past;
-  past ??= split.past;
-  if (past !== undefined && (past === pp || !/^[a-z][a-z-]*$/.test(past))) past = undefined;
+  // The simple past (only with --past-forms). WordNet lists the irregular forms without saying which is which; see pastAndParticiple.
+  let past: string | undefined;
+  if (pastForms) {
+    past = overrides.verbs[c.lemma]?.past ?? split.past ?? pp;
+    if (!/^[a-z][a-z-]*$/.test(past)) past = undefined;
+  }
 
   const v = vn.get(c.lemma);
   const valencies: { valency: Valency; prep?: string }[] = [];

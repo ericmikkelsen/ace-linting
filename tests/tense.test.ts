@@ -7,12 +7,12 @@ let ace: Ace;
 before(async () => {
   ace = await createAce({ apeDir: "vendor/APE/prolog", raceDir: "vendor/RACE/prolog" });
   const r = await ace.lexicon.add([
-    { class: "verb", lemma: "call", valency: "transitive", source: "test" },
-    { class: "verb", lemma: "buy", valency: "transitive", pp: "bought", source: "test" },
+    { class: "verb", lemma: "call", valency: "transitive", past: "called", source: "test" },
+    { class: "verb", lemma: "buy", valency: "transitive", pp: "bought", past: "bought", source: "test" },
     { class: "verb", lemma: "write", valency: "transitive", pp: "written", past: "wrote", source: "test" },
-    { class: "verb", lemma: "cut", valency: "transitive", pp: "cut", source: "test" },
-    { class: "verb", lemma: "arrive", valency: "intransitive", source: "test" },
-    { class: "verb", lemma: "send", valency: "ditransitive", prep: "to", pp: "sent", source: "test" },
+    { class: "verb", lemma: "cut", valency: "transitive", pp: "cut", past: "cut", source: "test" },
+    { class: "verb", lemma: "arrive", valency: "intransitive", past: "arrived", source: "test" },
+    { class: "verb", lemma: "send", valency: "ditransitive", prep: "to", pp: "sent", past: "sent", source: "test" },
   ]);
   assert.deepEqual(r.rejected, [], "the test verbs are accepted");
 });
@@ -65,9 +65,10 @@ test("a rule can link the past to the present when the user wants it", async () 
   } finally { ace.synonyms.remove(rule); }
 });
 
-test("past: false turns the past off for one verb", async () => {
-  await ace.lexicon.add({ class: "verb", lemma: "frob", valency: "transitive", pp: "frobbed", past: false, source: "test" });
+test("a verb given no past has none: basic ACE is the default", async () => {
+  await ace.lexicon.add({ class: "verb", lemma: "frob", valency: "transitive", pp: "frobbed", source: "test" });
   assert.ok((await errors("John frobbed a card.")).length > 0);
+  await valid("A card is frobbed by John.");
   await ace.lexicon.remove({ class: "verb", lemma: "frob" });
 });
 

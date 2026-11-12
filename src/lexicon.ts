@@ -16,8 +16,11 @@ export type LexEntry =
       sg3?: string;
       /** Participle, used in the passive ("is bought by"). */
       pp?: string;
-      /** Simple past ("bought"). Defaults to the participle; give it when they differ (wrote, written). `false` leaves the past out. */
-      past?: string | false;
+      /**
+       * Simple past ("bought"). Off unless given: basic ACE has no past tense, so by default "John bought a card." is reported as
+       * not ACE. With a past form the sentence is accepted, as a word of its own (docs/tense.md); that is an extension, not standard ACE.
+       */
+      past?: string;
       prep?: string;
     })
   | (Base & { class: "adjective"; comp?: string; sup?: string })
@@ -36,13 +39,11 @@ export class LexiconError extends Error {
 }
 
 /**
- * The simple past of a verb entry, or undefined when there is none. The past is a word of its own (docs/tense.md):
- * "bought" is not the same predicate as "buy", so a past fact never answers a present question.
+ * The simple past of a verb entry when one was given, otherwise undefined: past forms are an opt-in extension of ACE
+ * (docs/tense.md). The past is a word of its own, so "bought" is not the same predicate as "buy".
  */
 export function pastForm(e: Extract<LexEntry, { class: "verb" }>): string | undefined {
-  if (e.past === false) return undefined;
-  const form = e.past ?? e.pp ?? regularPp(e.lemma);
-  return form !== undefined && /^[a-z][a-z-]*$/.test(form) ? form : undefined; // no apostrophes or capitals: APE could not read the word
+  return typeof e.past === "string" && /^[a-z][a-z-]*$/.test(e.past) ? e.past : undefined; // no apostrophes or capitals: APE could not read the word
 }
 
 /** Convert one entry into APE lexicon terms (one per line, each ending in a period). */
@@ -148,7 +149,7 @@ export function checkEntry(value: unknown, line?: number): LexEntry {
   const lemma = v["lemma"];
   if (typeof lemma !== "string" || !/^[a-z][a-z-]*$/.test(lemma)) throw new LexiconError(`${where}lemma must be lowercase letters (hyphens allowed): '${String(lemma)}'`);
   if (v["gender"] !== undefined && !GENDERS.has(String(v["gender"]))) throw new LexiconError(`${where}bad gender '${String(v["gender"])}'`);
-  if (v["past"] !== undefined && v["past"] !== false && !(typeof v["past"] === "string" && /^[a-z][a-z-]*$/.test(v["past"]))) throw new LexiconError(`${where}past must be lowercase letters (hyphens allowed) or false: '${String(v["past"])}'`);
+  if (v["past"] !== undefined && !(typeof v["past"] === "string" && /^[a-z][a-z-]*$/.test(v["past"]))) throw new LexiconError(`${where}past must be lowercase letters (hyphens allowed): '${String(v["past"])}'`);
   if (v["class"] === "verb" && !VALENCIES.has(String(v["valency"]))) throw new LexiconError(`${where}verb needs valency intransitive, transitive or ditransitive`);
   return v as unknown as LexEntry;
 }

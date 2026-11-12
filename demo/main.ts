@@ -51,9 +51,11 @@ function watch(input: HTMLInputElement | HTMLTextAreaElement, layer: HTMLElement
     if (text !== input.value) return; // edited meanwhile
     layer.innerHTML = paintHtml(text, diagnostics);
     listDiagnostics(list, text, diagnostics);
+    // the whole box shows the verdict too: red border for an error, amber for a warning
+    input.dataset["state"] = diagnostics.some((d) => d.severity === "error") ? "error" : diagnostics.some((d) => d.severity === "warning") ? "warning" : "ok";
   }, 150);
   const sync = () => { layer.scrollTop = input.scrollTop; layer.scrollLeft = input.scrollLeft; };
-  const refresh = () => { layer.innerHTML = paintHtml(input.value, []); void relint(); sync(); };
+  const refresh = () => { layer.innerHTML = paintHtml(input.value, []); delete input.dataset["state"]; void relint(); sync(); };
   input.addEventListener("input", refresh);
   for (const ev of ["scroll", "keyup", "click", "select"]) input.addEventListener(ev, sync);
   refresh();

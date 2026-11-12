@@ -51,7 +51,8 @@ const errors = async (text: string): Promise<Diagnostic[]> => (await ace.lint(te
 const slice = (t: string, d: Diagnostic) => t.slice(d.range.start, d.range.end);
 
 for (const [text, word, kind] of [
-  ["John yelled a card.", "yelled", /past tense/], // not in the lexicon, so it is still a tense ACE cannot read
+  ["John bought a card.", "bought", /past tense/],
+  ["John yelled a card.", "yelled", /past tense/], // not in the lexicon at all
   ["John will buy a card.", "will", /future/],
   ["John has bought a card.", "bought", /perfect/],
   ["John is buying a card.", "buying", /progressive/],

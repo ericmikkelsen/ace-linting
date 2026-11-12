@@ -1,6 +1,6 @@
 # Plan: tenses
 
-Status: P0 and P1 are built. P2 and P3 remain a plan.
+Status: decided 2026-11-12 to stay with basic ACE for now (the owner is learning ACE, and a strict linter teaches it best). P0 is built and on; past forms (P1) exist but are off unless asked for; the rewriter (P3) was tried and removed; P2 was not built.
 
 ## The problem
 
@@ -87,6 +87,15 @@ Constructions with helper words cannot be added through the lexicon. Two routes:
 - **Conflicts** with other verbs' forms are settled in the build: the base verb wins by default, and `lexicon/oewn/homographs.json` lists seven forms where the past must win (saw, found, fell, felt, bound, spat, smelt). Several valencies of one verb share their past; a rival verb with the same past loses it. 49 verb entries end up without a past form (listed in the generated PROVENANCE.md), for example lie/lay, bear/bore, grind/ground, and spelling variants such as install/instal. A past form only counts as clashing when APE complains about verb forms; an adverb that is also a noun has nothing to do with it.
 - **Checked** on the full generated lexicon: 25 of 25 sample sentences are valid, including bought, wrote, saw, found, fell, felt, left, went, took, gave a card to Mary, cut, put, read, ran, sat, stood, told, ate, drank, plural subjects and a relative clause.
 - **Cost:** the generated lexicon grew from 4.8 MB to 5.4 MB of text; loading all 74,000 entries took about 0.7 s (it was about 0.6 s), and Node's process memory went from about 327 MB to 361 MB.
+
+## Where this ended up (2026-11-12)
+
+- **On by default:** P0, the linter's explanations. "John bought a card.", "Did John buy a card?", "Has John bought a card?" and the other tenses are reported as not ACE, with a message that names the tense, points at the word, and says what to write instead.
+- **Off by default, available:** past forms. A verb entry only has a past when it is given one (`past: "bought"`), and `node scripts/ingest-oewn.ts --past-forms` writes one for every verb. With a past form, "John bought a card." is accepted as a word of its own; that is an extension, not standard ACE, which is why it is not the default for someone learning ACE. The build also settles clashes between past forms and other verbs (`lexicon/oewn/homographs.json`).
+- **Tried and removed:** the rewriter. It turned "Did John buy a card?" into "Who bought a card?" and "Did the customer buy a card?" into "Is there a customer that bought a card?". It worked, but the questions it asked were not the questions the user wrote. It is in the history (commits "Add the pure tense rewriter" and "Remove the tense rewriter").
+- **A finding to keep:** "Is John somebody who bought a card?" is **not** a reliable stand-in for "Did John buy a card?". It was answered only because the notes also said John is a customer; with just "John bought a card." it is unknown.
+- **The better design, if tenses return:** keep each sentence as written and give it a tense label (past, present, future). APE reads the natural present form ("John buys a card."), and a question is asked only against the sentences of its own tense ("Did John buy a card?" is asked as "Does John buy a card?" against the past ones). No stand-in sentences. Its limits: number agreement ("buys" or "buy") has to be chosen by trying both with APE, and a sentence that mixes tenses ("Every customer who bought a card is happy.") gets one label. Not built.
+- **Teaching APE's grammar about tenses** remains the only fully native route and is still not recommended: RACE does not understand new kinds of parse conditions, and it means patching APE's grammar.
 
 ## Risks and open questions
 
