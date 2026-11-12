@@ -75,3 +75,23 @@ test("a message with no sentence number covers the whole text", () => {
   assert.equal(d!.approximate, true);
   assert.equal(d!.sentence, 0);
 });
+
+test("APE's 'interpreted as a proper name' warning says so, instead of calling the word unknown", () => {
+  const text = "Zorblax inserts a card.";
+  const msg: ApeMessage = { importance: "warning", scope: "word", sentence: 1, token: null, subject: "Zorblax", description: "Undefined word. Interpreted as a singular proper name." };
+  const [d] = toDiagnostics(text, [msg]);
+  assert.equal(d!.severity, "warning");
+  assert.equal(d!.code, "ape/word");
+  assert.equal(text.slice(d!.range.start, d!.range.end), "Zorblax");
+  assert.match(d!.message, /treated as a proper name/);
+  assert.doesNotMatch(d!.message, /Unknown or unsupported/);
+  assert.match(d!.suggestion ?? "", /common word/);
+});
+
+test("an unknown lowercase word keeps the 'unknown word' wording and APE's prefix hint", () => {
+  const text = "A zorblax waits.";
+  const msg: ApeMessage = { importance: "error", scope: "word", sentence: 1, token: null, subject: "zorblax", description: "Use the prefix n:, v:, a: or p:." };
+  const [d] = toDiagnostics(text, [msg]);
+  assert.match(d!.message, /Unknown or unsupported word 'zorblax'/);
+  assert.equal(d!.suggestion, "Use the prefix n:, v:, a: or p:.");
+});

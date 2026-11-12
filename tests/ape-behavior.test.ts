@@ -31,7 +31,7 @@ test("an unknown capitalized word is accepted as a proper name, with a warning o
   const { diagnostics } = await ace.lint("Zorblax inserts a card.");
   assert.equal(diagnostics.length, 1);
   assert.equal(diagnostics[0]!.severity, "warning");
-  assert.match(diagnostics[0]!.suggestion ?? "", /proper name/);
+  assert.match(diagnostics[0]!.message, /treated as a proper name/);
 });
 
 test("an unknown lowercase word is an error that points to the n:/v:/a:/p: prefixes", async () => {

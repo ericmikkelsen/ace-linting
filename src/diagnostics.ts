@@ -42,7 +42,11 @@ export function toDiagnostics(text: string, messages: ApeMessage[], options: Map
       code: `ape/${m.scope}`,
       sentence: sentence ? sentence.index : 0,
     } as const;
-    const suggestion = m.scope === "word" ? m.description || undefined : undefined;
+    // APE accepts an unknown capitalized word as a proper name and only warns; say that, not "unknown word".
+    const asName = m.scope === "word" && /Interpreted as an? .*proper name/.test(m.description);
+    const suggestion = asName
+      ? "If this is a common word, write it in lowercase and add it to the lexicon."
+      : m.scope === "word" ? m.description || undefined : undefined;
 
     const fallback = (message: string): Diagnostic => ({
       ...base,
@@ -63,7 +67,7 @@ export function toDiagnostics(text: string, messages: ApeMessage[], options: Map
       // APE gives the word but no token number: underline every occurrence in the sentence.
       const word = m.subject.toLowerCase();
       const hits = tokens.filter((t) => t.text.toLowerCase() === word);
-      const message = `Unknown or unsupported word '${m.subject}'.`;
+      const message = asName ? `'${m.subject}' is not in the lexicon, so it is treated as a proper name.` : `Unknown or unsupported word '${m.subject}'.`;
       if (!trusted || hits.length === 0) out.push(fallback(message));
       else for (const t of hits) out.push({ ...base, message, range: shift(sentence, t), ...(suggestion ? { suggestion } : {}) });
       continue;
