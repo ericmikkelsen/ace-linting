@@ -1,6 +1,6 @@
 # Plan: tenses
 
-Status: PLAN, not built. Decision (from the project owner): the deeper fix is not needed now. It is acceptable to treat a past-tense form such as "bought" as **a different word** from "buy", as long as the plan covers every verb, not just a few.
+Status: P0 is built; P1 is next. The rest is plan. Decision (from the project owner): the deeper fix is not needed now. It is acceptable to treat a past-tense form such as "bought" as **a different word** from "buy", as long as the plan covers every verb, not just a few.
 
 ## The problem
 

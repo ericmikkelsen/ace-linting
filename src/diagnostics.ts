@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import type { ApeMessage, Diagnostic, Range, SentenceSpan, TokenSpan } from "./types.ts";
 import { splitSentences, tokenizeSentence } from "./tokenize.ts";
+import { describeTense, TENSE_ADVICE } from "./tense.ts";
 
 /** Tokens of one sentence as APE reports them (APE's list starts with a '^' marker, which callers should drop). */
 export type ApeSentenceTokens = string[];
@@ -35,6 +36,7 @@ export function toDiagnostics(text: string, messages: ApeMessage[], options: Map
   };
 
   const out: Diagnostic[] = [];
+  const hinted = new Set<string>(); // ranges already explained as a tense
   for (const m of messages) {
     const sentence = m.sentence !== null ? sentences[m.sentence - 1] : undefined;
     const base = {
@@ -69,7 +71,15 @@ export function toDiagnostics(text: string, messages: ApeMessage[], options: Map
       const hits = tokens.filter((t) => t.text.toLowerCase() === word);
       const message = asName ? `'${m.subject}' is not in the lexicon, so it is treated as a proper name.` : `Unknown or unsupported word '${m.subject}'.`;
       if (!trusted || hits.length === 0) out.push(fallback(message));
-      else for (const t of hits) out.push({ ...base, message, range: shift(sentence, t), ...(suggestion ? { suggestion } : {}) });
+      else for (const t of hits) {
+        const range = shift(sentence, t);
+        const tense = describeTense(t.text, tokens[tokens.indexOf(t) - 1]?.text);
+        if (tense) {
+          const apeHint = /^Use the prefix/.test(m.description) ? ` If it is not a verb form: ${m.description}` : "";
+          hinted.add(`${range.start}-${range.end}`);
+          out.push({ ...base, message: tense.message, range, suggestion: `${TENSE_ADVICE}${apeHint}` });
+        } else out.push({ ...base, message, range, ...(suggestion ? { suggestion } : {}) });
+      }
       continue;
     }
 
@@ -91,7 +101,25 @@ export function toDiagnostics(text: string, messages: ApeMessage[], options: Map
       out.push({ ...fallback(message), ...(hint ? { suggestion: hint } : {}) });
       continue;
     }
-    out.push({ ...base, message, range: shift(sentence, token), ...(hint ? { suggestion: hint } : {}) });
+    const range = shift(sentence, token);
+    if (m.scope === "sentence") {
+      const at = tokens.indexOf(token);
+      // APE reads "has bought" as "has" plus a noun and stops at the next word, so also look one word back for a
+      // helper plus participle ("has bought", "is buying").
+      const back = tokens[at - 1];
+      const earlier = back ? describeTense(back.text, tokens[at - 2]?.text) : undefined;
+      const here = describeTense(token.text, tokens[at - 1]?.text);
+      const found = here ? { tense: here, at: token } : earlier && (earlier.kind === "perfect" || earlier.kind === "progressive") && back ? { tense: earlier, at: back } : undefined;
+      if (found) {
+        const r = shift(sentence, found.at);
+        hinted.add(`${r.start}-${r.end}`);
+        out.push({ ...base, message: found.tense.message, range: r, suggestion: TENSE_ADVICE });
+        continue;
+      }
+      // the generic "not valid ACE here" adds nothing when a tense explanation already points at the same word
+      if (hinted.has(`${range.start}-${range.end}`)) continue;
+    }
+    out.push({ ...base, message, range, ...(hint ? { suggestion: hint } : {}) });
   }
   return out;
 }
