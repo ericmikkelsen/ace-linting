@@ -84,3 +84,35 @@ test("a sentence that is wrong for another reason keeps its ordinary message", a
   assert.ok(ds.length > 0);
   assert.ok(!ds.some((d) => /tense/.test(d.message)));
 });
+
+// --- a capitalized helper at the start of a sentence ("Did John buy a card?"): APE reads it as a proper name
+
+test("'Did John buy a card?' is reported as an error that names the past tense, not as a proper name", async () => {
+  const text = "Did John buy a card?";
+  const ds = await errors(text);
+  const hint = ds.find((d) => /past tense/.test(d.message));
+  assert.ok(hint, `no tense error in ${JSON.stringify(ds.map((d) => d.message))}`);
+  assert.equal(slice(text, hint), "Did");
+  assert.equal(hint.severity, "error");
+  assert.match(hint.suggestion ?? "", /on Monday/);
+});
+
+test("'Was John happy?' and 'Will John buy a card?' are explained too", async () => {
+  assert.ok((await errors("Was John happy?")).some((d) => /past tense/.test(d.message)));
+  assert.ok((await errors("Will John buy a card?")).some((d) => /future/.test(d.message)));
+});
+
+test("ask reports the tense explanation when the question is invalid", async () => {
+  const withRace = await createAce({ apeDir: "vendor/APE/prolog", raceDir: "vendor/RACE/prolog", lexicon: LEXICON });
+  try {
+    const r = await withRace.ask({ text: "John bought a card.", question: "Did John buy a card?" });
+    if (r.status !== "invalid") assert.fail(`expected invalid, got ${r.status}`);
+    assert.ok(r.question.some((d) => /past tense/.test(d.message)));
+  } finally { await withRace.dispose(); }
+});
+
+test("a person called Will is still a valid proper name when nothing else is wrong", async () => {
+  assert.deepEqual(await errors("Will buys a card."), []);
+  const warning = (await ace.lint("Will buys a card.")).diagnostics.find((d) => d.severity === "warning");
+  assert.match(warning?.message ?? "", /treated as a proper name/);
+});

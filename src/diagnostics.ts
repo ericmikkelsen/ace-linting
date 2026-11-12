@@ -37,6 +37,9 @@ export function toDiagnostics(text: string, messages: ApeMessage[], options: Map
 
   const out: Diagnostic[] = [];
   const hinted = new Set<string>(); // ranges already explained as a tense
+  // A capitalized helper at the start of a sentence ("Did", "Will") is read by APE as a proper name and only warned about. It is a tense
+  // error when the sentence fails anyway, and a person's name ("Will buys a card.") when nothing else is wrong.
+  const tentative = new Map<Diagnostic, Diagnostic>();
   for (const m of messages) {
     const sentence = m.sentence !== null ? sentences[m.sentence - 1] : undefined;
     const base = {
@@ -74,11 +77,14 @@ export function toDiagnostics(text: string, messages: ApeMessage[], options: Map
       else for (const t of hits) {
         const range = shift(sentence, t);
         const tense = describeTense(t.text, tokens[tokens.indexOf(t) - 1]?.text);
+        const plain: Diagnostic = { ...base, message, range, ...(suggestion ? { suggestion } : {}) };
         if (tense) {
           const apeHint = /^Use the prefix/.test(m.description) ? ` If it is not a verb form: ${m.description}` : "";
           hinted.add(`${range.start}-${range.end}`);
-          out.push({ ...base, message: tense.message, range, suggestion: `${TENSE_ADVICE}${apeHint}` });
-        } else out.push({ ...base, message, range, ...(suggestion ? { suggestion } : {}) });
+          const hint: Diagnostic = { ...base, severity: "error", message: tense.message, range, suggestion: `${TENSE_ADVICE}${apeHint}` };
+          if (m.importance === "warning") tentative.set(hint, plain);
+          out.push(hint);
+        } else out.push(plain);
       }
       continue;
     }
@@ -121,5 +127,10 @@ export function toDiagnostics(text: string, messages: ApeMessage[], options: Map
     }
     out.push({ ...base, message, range, ...(hint ? { suggestion: hint } : {}) });
   }
-  return out;
+  return out.map((d) => {
+    const plain = tentative.get(d);
+    if (!plain) return d;
+    const sentenceFails = out.some((x) => x.sentence === d.sentence && x.severity === "error" && !tentative.has(x));
+    return sentenceFails ? d : plain;
+  });
 }
