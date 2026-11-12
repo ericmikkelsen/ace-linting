@@ -6,7 +6,7 @@ The library runs APE and RACE in a Web Worker, so typing never blocks the page. 
 
 ```bash
 npm run build:browser    # dist-browser/ace-linting.js + assets/ (the worker and the Prolog runtime)
-npm run dev:demo         # demo with live squiggles, questions and synonym rules at http://localhost:5173/
+npm run dev:demo         # demo with live squiggles (notes and the question box), questions and synonym rules at http://localhost:5173/
 npm run build:demo       # a static copy of the demo in demo-dist/
 ```
 

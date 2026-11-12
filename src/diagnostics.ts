@@ -40,6 +40,7 @@ export function toDiagnostics(text: string, messages: ApeMessage[], options: Map
   // A capitalized helper at the start of a sentence ("Did", "Will") is read by APE as a proper name and only warned about. It is a tense
   // error when the sentence fails anyway, and a person's name ("Will buys a card.") when nothing else is wrong.
   const tentative = new Map<Diagnostic, Diagnostic>();
+  const helperRanges = new Set<string>(); // the opening "Has" of "Has John bought a card?": explained by the perfect-tense message
   for (const m of messages) {
     const sentence = m.sentence !== null ? sentences[m.sentence - 1] : undefined;
     const base = {
@@ -119,6 +120,8 @@ export function toDiagnostics(text: string, messages: ApeMessage[], options: Map
       if (found) {
         const r = shift(sentence, found.at);
         hinted.add(`${r.start}-${r.end}`);
+        const first = tokens[0];
+        if (first && found.tense.message.includes(" ... ")) { const f = shift(sentence, first); helperRanges.add(`${f.start}-${f.end}`); }
         out.push({ ...base, message: found.tense.message, range: r, suggestion: TENSE_ADVICE });
         continue;
       }
@@ -127,7 +130,7 @@ export function toDiagnostics(text: string, messages: ApeMessage[], options: Map
     }
     out.push({ ...base, message, range, ...(hint ? { suggestion: hint } : {}) });
   }
-  return out.map((d) => {
+  return out.filter((d) => !(d.severity === "warning" && d.code === "ape/word" && helperRanges.has(`${d.range.start}-${d.range.end}`))).map((d) => {
     const plain = tentative.get(d);
     if (!plain) return d;
     const sentenceFails = out.some((x) => x.sentence === d.sentence && x.severity === "error" && !tentative.has(x));

@@ -146,3 +146,9 @@ test("ordinary questions are not mistaken for tenses", async () => {
   assert.deepEqual(await errors("Is John happy?"), []);
   assert.deepEqual(await errors("Does John buy a card?"), []);
 });
+
+test("the helper that opens a perfect-tense question is not also called a proper name", async () => {
+  const ds = (await ace.lint("Has John bought a card?")).diagnostics;
+  assert.ok(!ds.some((d) => /proper name/.test(d.message)), JSON.stringify(ds.map((d) => d.message)));
+  assert.ok(ds.some((d) => /perfect/.test(d.message)));
+});

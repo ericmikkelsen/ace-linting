@@ -21,8 +21,11 @@
     mark.warning { text-decoration-color: var(--warn); }
     ul { padding-left: 1.1rem; }
     li.error::marker { color: var(--err); } li.warning::marker { color: var(--warn); }
+    #q-diagnostics { margin: .25rem 0 0; }
     form { display: flex; gap: .5rem; margin-top: 1rem; }
-    input { flex: 1; min-width: 0; padding: .55rem .7rem; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+    .editor-line { position: relative; flex: 1; min-width: 0; }
+    #question { position: relative; width: 100%; padding: .55rem .7rem; font: 1rem/1.5 ui-monospace, monospace; color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 8px; }
+    #q-backdrop { position: absolute; inset: 0; padding: .55rem .7rem; border: 1px solid transparent; font: 1rem/1.5 ui-monospace, monospace; color: transparent; white-space: pre; overflow: hidden; pointer-events: none; }
     button { padding: .5rem .9rem; font: inherit; color: var(--bg); background: var(--accent); border: 0; border-radius: 8px; cursor: pointer; }
     button.small { padding: .15rem .55rem; font-size: .85rem; }
     #answer { margin-top: 1rem; padding: .75rem 1rem; border: 1px solid var(--line); border-radius: 8px; min-height: 3rem; }
@@ -43,9 +46,13 @@
   <ul id="diagnostics" aria-label="Diagnostics"></ul>
 
   <form id="ask">
-    <input id="question" aria-label="Question" value="Is John happy?" autocomplete="off">
+    <div class="editor-line">
+      <div id="q-backdrop" aria-hidden="true"></div>
+      <input id="question" aria-label="Question" value="Is John happy?" autocomplete="off" spellcheck="false">
+    </div>
     <button type="submit">Ask</button>
   </form>
+  <ul id="q-diagnostics" aria-label="Question diagnostics"></ul>
   <section id="answer" aria-live="polite"><span class="muted">Ask a question about the notes above.</span></section>
 
   <details>

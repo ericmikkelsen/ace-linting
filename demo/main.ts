@@ -2,6 +2,7 @@
 import { createAce, parseEntries, debounce, type Ace, type Diagnostic, type AskResult, type SynonymRule } from "../src/index.ts";
 import type { SynonymIndex } from "../src/synonym-index.ts";
 import coreLexicon from "../lexicon/core/core.jsonl?raw";
+import { paintHtml } from "./paint.ts";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const notes = $<HTMLTextAreaElement>("notes");
@@ -12,21 +13,7 @@ notes.value = "John is a customer. Mary is a customer. John inserts a card. Ever
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/** Draw wavy underlines by mirroring the text in a layer behind the textarea. */
-function paint(text: string, ds: Diagnostic[]) {
-  const spans = [...ds].filter((d) => d.range.end > d.range.start).sort((a, b) => a.range.start - b.range.start);
-  let html = "";
-  let at = 0;
-  for (const d of spans) {
-    if (d.range.start < at) continue; // overlapping: keep the first
-    html += esc(text.slice(at, d.range.start)) + `<mark class="${d.severity}">${esc(text.slice(d.range.start, d.range.end))}</mark>`;
-    at = d.range.end;
-  }
-  backdrop.innerHTML = html + esc(text.slice(at)) + "\n";
-}
-
-function listDiagnostics(text: string, ds: Diagnostic[]) {
-  const ul = $("diagnostics");
+function listDiagnostics(ul: HTMLElement, text: string, ds: Diagnostic[]) {
   ul.replaceChildren(...ds.map((d) => {
     const li = document.createElement("li");
     li.className = d.severity;
@@ -56,17 +43,23 @@ async function start(): Promise<Ace> {
 
 const ace = await start().catch((e: unknown) => { statusEl.textContent = `Could not start: ${e instanceof Error ? e.message : String(e)}`; throw e; });
 
-const relint = debounce(async () => {
-  const text = notes.value;
-  const { diagnostics } = await ace.lint(text);
-  if (text !== notes.value) return; // edited meanwhile
-  paint(text, diagnostics);
-  listDiagnostics(text, diagnostics);
-}, 150);
-const refresh = () => { paint(notes.value, []); void relint(); };
-notes.addEventListener("input", refresh);
-notes.addEventListener("scroll", () => { backdrop.scrollTop = notes.scrollTop; });
-refresh();
+/** Lint a text box as the user types: wavy underlines on a layer behind it, and the reasons in a list below. */
+function watch(input: HTMLInputElement | HTMLTextAreaElement, layer: HTMLElement, list: HTMLElement) {
+  const relint = debounce(async () => {
+    const text = input.value;
+    const { diagnostics } = await ace.lint(text);
+    if (text !== input.value) return; // edited meanwhile
+    layer.innerHTML = paintHtml(text, diagnostics);
+    listDiagnostics(list, text, diagnostics);
+  }, 150);
+  const sync = () => { layer.scrollTop = input.scrollTop; layer.scrollLeft = input.scrollLeft; };
+  const refresh = () => { layer.innerHTML = paintHtml(input.value, []); void relint(); sync(); };
+  input.addEventListener("input", refresh);
+  for (const ev of ["scroll", "keyup", "click", "select"]) input.addEventListener(ev, sync);
+  refresh();
+}
+watch(notes, backdrop, $("diagnostics"));
+watch($<HTMLInputElement>("question"), $("q-backdrop"), $("q-diagnostics"));
 
 function renderRules() {
   const rules = ace.synonyms.list();
