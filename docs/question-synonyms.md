@@ -1,6 +1,6 @@
 # Design: synonyms and suggestions for questions
 
-Status: S1 to S4 are built (rules, proof labels, the synonym index and suggestions). S5 (synonym-aware sentence selection) and S6 (ditransitive, adverb and mixed-subject cases) are still design. The Ask API (Task 4) is done. Facts marked "verified" come from running RACE under `swipl-wasm` on 2026-11-11 with our generated lexicon loaded.
+Status: built (S1 to S6). The shapes below were verified against RACE; the unverified cases of the first draft are now resolved.
 
 ## Problem
 
@@ -29,24 +29,43 @@ RACE answers by logical proof, so it only matches the words that appear. If the 
 
 Also verified: `WhyNot` is a list of strings of the form `<word class>: <word>`, which is what the suggestion step reads.
 
+### Second round (variables), which settled the open cases
+
+The first draft's verb shape ("If somebody buys something then he purchases it.") worked only for some subjects, and failed for a thing as the subject of a transitive verb and for ditransitive verbs. The cause: in "...then it parses it", both "it"s refer to the same antecedent, the object. Rules written with ACE variables avoid pronouns altogether:
+
+| Case | Rule | Result |
+|---|---|---|
+| Intransitive, person | `If somebody X stops then X halts.` | Answered (John) |
+| Intransitive, thing | same rule | Answered (a machine); "somebody" is not limited to people in RACE |
+| "Who halts?" with both | same rule | Answered with both |
+| Transitive, person and thing | `If somebody X reads something Y then X parses Y.` | Answered for John and for a machine; "Who parses a card?" answered |
+| Ditransitive | `If somebody X brings something Y to somebody Z then X sends Y to Z.` | Answered; also with "shows" |
+| Adverb, intransitive verb | `If somebody X waits quickly then X waits rapidly.` | Answered |
+| Adverb, transitive verb | `If somebody X reads something Y quickly then X reads Y rapidly.` | Answered |
+| Over-firing | the same rules with a different verb or object in the question | Unknown, as it should be |
+
+The first round's ditransitive failure was therefore the pronoun shape, not the lexicon.
+
 ## Design
 
 ### 1. Synonym rules (deterministic, explicit)
 
-A rule says two words mean the same thing for this user, in one direction or both. It compiles to ACE sentences by word class, using the shapes verified above:
+A rule says two words mean the same thing for this user, in one direction or both. It compiles to ACE sentences by word class:
 
 | Class | Compiled sentence (X means Y) |
 |---|---|
-| noun | `Every X is a Y.` (and `Every Y is a X.` when both ways) |
-| intransitive verb | `If somebody Xs then he Ys.` |
-| transitive verb | `If somebody Xs something then he Ys it.` |
+| noun | `Every X is a Y.` (and the reverse when both ways) |
 | adjective | `Everything that is X is Y.` |
+| verb, intransitive | `If somebody X Xs then X Ys.` (variables; written in full below) |
+| verb, transitive | `If somebody X buys something Y then X purchases Y.` |
+| verb, ditransitive | `If somebody X brings something Y to somebody Z then X sends Y to Z.` (each verb's preposition, "to" by default) |
+| adverb (tied to one verb) | `If somebody X waits quickly then X waits rapidly.` |
 
-Not supported until verified: adverbs, prepositions, ditransitive verbs, and verbs whose subject is not a person (the verified non-person case used `something`/`it`, which needs a second rule when the same verb takes people and things).
+An adverb rule names the verb it applies to (`verb: "wait"`), because "quickly means rapidly" cannot be stated for every verb at once. Still unsupported: prepositions, and the double-object form "gives a machine a card".
 
-Where they go: the compiled sentences are appended **after** the user's text before calling RACE, so the numbering of the user's own sentences in the proof does not shift. The proof lines that come from a rule are labeled, so an editor can say "because 'buys' = 'purchases'".
+Where they go: the compiled sentences are appended **after** the user's text before calling RACE, so the numbering of the user's own sentences in the proof does not shift. The proof lines that come from a rule are labeled (`sentence: 0`, `synonym: rule`).
 
-Rules are never closed transitively (A=B and B=C does not give A=C); each link is something the user wrote.
+Rules are never closed transitively by us; each link is something the user wrote. RACE chains them because each is a real sentence.
 
 ### 2. Suggestions when the answer is unknown
 
@@ -64,19 +83,18 @@ Tried against the real index and lexicon: buy => purchase, client => customer, u
 ### 3. Fuzzy matching, narrowly
 
 - **Typos:** APE already suggests corrections for unknown words (its messages carry a "bad word, good word" pair, which our linter shows as `suggestion`). With a lexicon of about 74,000 words, a typo that happens to be a real word is no longer caught; we do not try to fix that in v1.
-- **Narrowing the text before RACE:** the plan already selects relevant sentences before calling RACE, and retries with the full text if the answer is unknown. That selection can use WordNet synonyms to include sentences with related words. This only chooses which sentences to try; RACE still proves the answer, so soundness is unaffected.
+- **Narrowing the text before RACE (S5, built):** long texts are narrowed to sentences related to the question, with a retry on everything when the answer is unknown. The narrowing now follows the user's synonym rules, chains included: a question about "purchase" also pulls in sentences about "buy" when a rule links them. Only the user's rules are used: RACE cannot use a synonym without a rule, so widening the selection with WordNet synonyms would add sentences it cannot use. This matters for "who" questions, where narrowing can silently drop a sentence that would have added an answer (the retry only triggers on "unknown").
+- **Matching word forms:** the narrowing compares candidate base forms (purchases, purchased and purchase meet). The first version stripped "es" from "purchases" and so never matched "purchase"; the tests that exercised it passed only because other words overlapped. Fixed and tested.
 - **Not planned:** matching question words to the lexicon by edit distance inside the answering path. That would answer questions about words the user did not write.
 
 ## API sketch
 
 ```ts
-type SynonymRule = {
-  class: "noun" | "verb" | "adjective";
-  from: string;              // lemma
-  to: string;                // lemma
-  both?: boolean;            // default false: from => to only
-  valency?: "intransitive" | "transitive"; // verbs only
-};
+type SynonymRule =
+  | { class: "noun" | "adjective"; from: string; to: string; both?: boolean }
+  | { class: "verb"; valency: "intransitive" | "transitive" | "ditransitive"; from: string; to: string; both?: boolean;
+      fromSg3?: string; toSg3?: string; fromPrep?: string; toPrep?: string }
+  | { class: "adverb"; verb: string; valency: "intransitive" | "transitive"; from: string; to: string; both?: boolean; verbSg3?: string };
 
 ace.synonyms.add(rule: SynonymRule): void;
 ace.synonyms.remove(rule: SynonymRule): void;
@@ -108,9 +126,8 @@ Suggestions are computed by an optional module (`ace-linting/suggest`) so the sy
 ## Risks and open questions
 
 1. **Sense ambiguity.** Suggestions show definitions for this reason; accepted rules are the user's responsibility. Should a rule record its sense so the editor can show it later?
-2. **Many rules slow RACE.** Each rule adds an axiom to the proof search. Only include rules whose words occur in the question or the text.
-3. **Size of the synonym index**: measured at 0.98 MB gzipped; it loads lazily through the `synonymIndex` loader.
-4. **People versus things.** A verb rule written with `somebody` covers people; things need `something`. Do we emit both, and does emitting both cause duplicate answers? Needs a test.
-5. **Ditransitive verbs** failed in the one case tried; cause unknown.
-6. **Licensing:** the index is derived from Open English WordNet, so it carries the same notices as the lexicon (CC BY 4.0 and the Princeton WordNet license).
-7. **Where rules are stored:** in the instance only, or exportable as an ACE text the user keeps with their notes? Exporting the compiled sentences as plain ACE would make rules portable and readable.
+2. **Many rules slow RACE.** Each relevant rule adds an axiom to the proof search; only rules whose words occur in the question or the text are sent (chains included). Not measured with hundreds of rules.
+3. **Narrowing can drop answers.** For a "who" question on a long text, a narrowed text that still answers gives only the answers found in the chosen sentences. Rule-aware selection closes the synonym gap but not the general one.
+4. **The double-object form** ("gives a machine a card") and preposition synonyms have no rule shape.
+5. **Licensing:** the index is derived from Open English WordNet, so it carries the same notices as the lexicon (CC BY 4.0 and the Princeton WordNet license).
+6. **Where rules are stored:** in the instance only, or exportable as plain ACE text? Exporting the compiled sentences would make rules portable and readable.

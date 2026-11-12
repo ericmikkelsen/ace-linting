@@ -63,6 +63,19 @@ test("selectRelevant keeps sentences that share words with the question, and tho
   assert.deepEqual(selectRelevant(sentences, "Is John happy?"), [1, 3]);
 });
 
+test("selectRelevant follows related words, so a sentence linked only by a synonym rule is chosen", () => {
+  const sentences = ["A dog sleeps.", "John buys a card.", "Mary purchases a ticket.", "A cat waits."];
+  const related = (w: string) => (w === "purchase" ? ["buy"] : w === "buy" ? ["purchase"] : []);
+  assert.deepEqual(selectRelevant(sentences, "Who purchases something?"), [2], "without the link only the direct match");
+  assert.deepEqual(selectRelevant(sentences, "Who purchases something?", related), [1, 2]);
+});
+
+test("selectRelevant follows a chain of related words", () => {
+  const sentences = ["A dog sleeps.", "John acquires a card.", "A cat waits."];
+  const edges: Record<string, string[]> = { buy: ["purchase"], purchase: ["buy", "acquire"], acquire: ["purchase"] };
+  assert.deepEqual(selectRelevant(sentences, "Who buys something?", (w) => edges[w] ?? []), [1]);
+});
+
 test("selectRelevant returns every sentence index when nothing matches", () => {
   assert.deepEqual(selectRelevant(["A dog sleeps.", "A cat waits."], "Is John happy?"), [0, 1]);
 });

@@ -68,8 +68,13 @@ test("an adjective gets an adjective rule", () => {
   assert.deepEqual(s[0]!.rule, { class: "adjective", from: "urgent", to: "pressing" });
 });
 
-test("classes we cannot write a rule for (proper names, prepositions, ditransitive verbs) get nothing", () => {
-  assert.deepEqual(suggest([{ wordClass: "proper name", word: "John" }, { wordClass: "preposition", word: "to" }, { wordClass: "ditransitive verb", word: "purchase" }], "John buys a card.", index), []);
+test("classes we cannot write a rule for (proper names, prepositions) get nothing", () => {
+  assert.deepEqual(suggest([{ wordClass: "proper name", word: "John" }, { wordClass: "preposition", word: "to" }], "John buys a card.", index), []);
+});
+
+test("a ditransitive verb gets a ditransitive rule", () => {
+  const s = suggest([{ wordClass: "ditransitive verb", word: "purchase" }], "John buys a card for Mary.", index);
+  assert.deepEqual(s[0]!.rule, { class: "verb", valency: "ditransitive", from: "buy", to: "purchase" });
 });
 
 test("at most the requested number of suggestions per word, and no duplicates", () => {

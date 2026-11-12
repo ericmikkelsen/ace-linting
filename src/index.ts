@@ -8,8 +8,8 @@ import { BROWSER_BUILD } from "./env.ts";
 import { UPSTREAM } from "./upstream-manifest.ts";
 import { toApeLines, checkEntry, templatesFor, entryKey, matchesRef, sameEntry, formsOf, warnedWord, type LexEntry, type LexRef, type LexiconChange } from "./lexicon.ts";
 import { splitSentences } from "./tokenize.ts";
-import { selectRelevant, contentStems, stem } from "./select.ts";
-import { compileRule, ruleKey, SynonymError } from "./synonyms.ts";
+import { selectRelevant, contentStems, stemsOf } from "./select.ts";
+import { compileRule, ruleKey, ruleWords, SynonymError } from "./synonyms.ts";
 import { suggest } from "./suggest.ts";
 import type { SynonymIndex } from "./synonym-index.ts";
 import { toAskResult } from "./ask.ts";
@@ -365,6 +365,16 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
     }
     rules.set(ruleKey(rule), rule);
   };
+  /** Stems linked by the user's rules, both ways, for narrowing a long text. */
+  const relatedStems = (word: string): string[] => {
+    const out: string[] = [];
+    for (const rule of rules.values()) {
+      const [a, b] = ruleWords(rule).map(stemsOf) as [string[], string[]];
+      if (a.includes(word)) out.push(...b);
+      if (b.includes(word)) out.push(...a);
+    }
+    return out;
+  };
   /** The rule sentences that matter given what is being asked, following chains (A=>B, B=>C) to a fixed point. */
   const relevantRules = (textAndQuestion: string): { sentence: string; rule: SynonymRule }[] => {
     const known = contentStems(textAndQuestion);
@@ -373,10 +383,10 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
       grew = false;
       for (const rule of rules.values()) {
         if (chosen.has(rule)) continue;
-        if (known.has(stem(rule.from)) || known.has(stem(rule.to))) {
+        const [a, b] = ruleWords(rule).map(stemsOf) as [string[], string[]];
+        if (a.some((w) => known.has(w)) || b.some((w) => known.has(w))) {
           chosen.add(rule);
-          known.add(stem(rule.from));
-          known.add(stem(rule.to));
+          for (const w of [...a, ...b]) known.add(w);
           grew = true;
         }
       }
@@ -475,7 +485,7 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
 
       const sentences = splitSentences(text).map((s) => s.text);
       const all = sentences.map((_, i) => i);
-      const chosen = select ? select(sentences, question) : sentences.length > SELECT_ABOVE ? selectRelevant(sentences, question) : all;
+      const chosen = select ? select(sentences, question) : sentences.length > SELECT_ABOVE ? selectRelevant(sentences, question, relatedStems) : all;
       const sendText = (idx: number[]) => idx.map((i) => sentences[i]!).join(" ");
       const numbers = (idx: number[]) => idx.map((i) => i + 1);
       // Synonym rules that matter for this attempt are appended after the user's sentences, so their numbering is unchanged.

@@ -55,11 +55,25 @@ export type ProofAxiom = {
 
 /**
  * Two words the user says mean the same thing, compiled into an ACE sentence that appears in proofs.
- * `from => to` (add `both: true` for the reverse too). Verbs need a valency because the two shapes differ.
+ * `from => to` (add `both: true` for the reverse too). Verbs need a valency because the sentence shapes differ.
  */
 export type SynonymRule =
   | { class: "noun" | "adjective"; from: string; to: string; both?: boolean }
-  | { class: "verb"; valency: "intransitive" | "transitive"; from: string; to: string; both?: boolean; fromSg3?: string; toSg3?: string };
+  | {
+      class: "verb";
+      valency: "intransitive" | "transitive" | "ditransitive";
+      from: string;
+      to: string;
+      both?: boolean;
+      /** Third-person singular forms when they are not regular ("has"). */
+      fromSg3?: string;
+      toSg3?: string;
+      /** Ditransitive only: the preposition each verb takes before the third argument. Default "to". */
+      fromPrep?: string;
+      toPrep?: string;
+    }
+  /** An adverb means the same as another one when it modifies this verb. It cannot be stated for every verb at once. */
+  | { class: "adverb"; verb: string; valency: "intransitive" | "transitive"; from: string; to: string; both?: boolean; verbSg3?: string };
 
 /** What a question word stood for in a proof, e.g. `who = John`. */
 export type Substitution = { word: string; value: string };

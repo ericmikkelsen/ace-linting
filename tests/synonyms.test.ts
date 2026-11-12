@@ -11,6 +11,15 @@ const LEXICON: LexEntry[] = [
   { class: "verb", lemma: "acquire", valency: "transitive", source: "test" },
   { class: "verb", lemma: "arrive", valency: "intransitive", source: "test" },
   { class: "verb", lemma: "come", valency: "intransitive", pp: "come", sg3: "comes", source: "test" },
+  { class: "verb", lemma: "bring", valency: "ditransitive", prep: "to", pp: "brought", source: "test" },
+  { class: "verb", lemma: "send", valency: "ditransitive", prep: "to", pp: "sent", source: "test" },
+  { class: "verb", lemma: "stop", valency: "intransitive", pp: "stopped", source: "test" },
+  { class: "verb", lemma: "halt", valency: "intransitive", source: "test" },
+  { class: "verb", lemma: "wait", valency: "intransitive", source: "test" },
+  { class: "verb", lemma: "read", valency: "transitive", pp: "read", source: "test" },
+  { class: "verb", lemma: "parse", valency: "transitive", source: "test" },
+  { class: "adverb", lemma: "quickly", source: "test" },
+  { class: "adverb", lemma: "rapidly", source: "test" },
   { class: "adjective", lemma: "urgent", source: "test" },
   { class: "adjective", lemma: "important", source: "test" },
 ];
@@ -26,13 +35,27 @@ test("the article follows the word: 'an' before a vowel sound", () => {
   assert.deepEqual(compileRule({ class: "noun", from: "client", to: "account" }), ["Every client is an account."]);
 });
 
-test("verb rules use the verified shapes for transitive and intransitive verbs", () => {
-  assert.deepEqual(compileRule({ class: "verb", valency: "transitive", from: "buy", to: "purchase" }), ["If somebody buys something then he purchases it."]);
-  assert.deepEqual(compileRule({ class: "verb", valency: "intransitive", from: "arrive", to: "come" }), ["If somebody arrives then he comes."]);
+test("verb rules use variables, which RACE applies to people and things alike", () => {
+  assert.deepEqual(compileRule({ class: "verb", valency: "transitive", from: "buy", to: "purchase" }), ["If somebody X buys something Y then X purchases Y."]);
+  assert.deepEqual(compileRule({ class: "verb", valency: "intransitive", from: "arrive", to: "come" }), ["If somebody X arrives then X comes."]);
+});
+
+test("a ditransitive rule keeps the preposition of each verb, 'to' unless told otherwise", () => {
+  assert.deepEqual(compileRule({ class: "verb", valency: "ditransitive", from: "bring", to: "send" }), ["If somebody X brings something Y to somebody Z then X sends Y to Z."]);
+  assert.deepEqual(compileRule({ class: "verb", valency: "ditransitive", from: "buy", to: "get", fromPrep: "for", toPrep: "to" }), ["If somebody X buys something Y for somebody Z then X gets Y to Z."]);
+});
+
+test("an adverb rule belongs to one verb, because the adverb modifies that verb's action", () => {
+  assert.deepEqual(compileRule({ class: "adverb", verb: "wait", valency: "intransitive", from: "quickly", to: "rapidly" }), ["If somebody X waits quickly then X waits rapidly."]);
+  assert.deepEqual(compileRule({ class: "adverb", verb: "read", valency: "transitive", from: "quickly", to: "rapidly", both: true }), [
+    "If somebody X reads something Y quickly then X reads Y rapidly.",
+    "If somebody X reads something Y rapidly then X reads Y quickly.",
+  ]);
+  assert.throws(() => compileRule({ class: "adverb", from: "quickly", to: "rapidly" } as never), /verb/);
 });
 
 test("irregular third-person forms can be given", () => {
-  assert.deepEqual(compileRule({ class: "verb", valency: "transitive", from: "have", to: "own", fromSg3: "has" }), ["If somebody has something then he owns it."]);
+  assert.deepEqual(compileRule({ class: "verb", valency: "transitive", from: "have", to: "own", fromSg3: "has" }), ["If somebody X has something Y then X owns Y."]);
 });
 
 test("an adjective rule becomes 'Everything that is X is Y.'", () => {
@@ -141,5 +164,67 @@ test("rules survive a timeout restart", async () => {
   try {
     assert.equal((await ace.ask({ text: "John is a client.", question: "Is John a customer?", timeoutMs: 1 })).status, "timeout");
     assert.equal((await ace.ask({ text: "John is a client.", question: "Is John a customer?" })).status, "answered");
+  } finally { ace.synonyms.remove(rule); }
+});
+
+// --- the leftover cases, verified against RACE
+
+test("a ditransitive rule answers: bring implies send", async () => {
+  const rule = { class: "verb", valency: "ditransitive", from: "bring", to: "send" } as const;
+  await ace.synonyms.add(rule);
+  try {
+    const r = await ace.ask({ text: "John brings a card to Mary.", question: "Does John send a card to Mary?" });
+    assert.equal(r.status, "answered");
+  } finally { ace.synonyms.remove(rule); }
+});
+
+test("one verb rule serves a person and a thing as the subject", async () => {
+  const rule = { class: "verb", valency: "intransitive", from: "stop", to: "halt" } as const;
+  await ace.synonyms.add(rule);
+  try {
+    assert.equal((await ace.ask({ text: "A machine stops.", question: "Does a machine halt?" })).status, "answered");
+    assert.equal((await ace.ask({ text: "John stops.", question: "Does John halt?" })).status, "answered");
+    const who = await ace.ask({ text: "John stops. A machine stops.", question: "Who halts?" });
+    if (who.status !== "answered") assert.fail(`expected answered, got ${who.status}`);
+  } finally { ace.synonyms.remove(rule); }
+});
+
+test("a transitive rule with a thing as the subject answers, and does not fire for another object", async () => {
+  const rule = { class: "verb", valency: "transitive", from: "read", to: "parse" } as const;
+  await ace.synonyms.add(rule);
+  try {
+    assert.equal((await ace.ask({ text: "A machine reads a card.", question: "Does a machine parse a card?" })).status, "answered");
+    assert.equal((await ace.ask({ text: "John reads a card.", question: "Does John parse a machine?" })).status, "unknown");
+  } finally { ace.synonyms.remove(rule); }
+});
+
+test("an adverb rule for one verb answers, and does not fire for a different verb", async () => {
+  const rule = { class: "adverb", verb: "wait", valency: "intransitive", from: "quickly", to: "rapidly" } as const;
+  await ace.synonyms.add(rule);
+  try {
+    assert.equal((await ace.ask({ text: "John waits quickly.", question: "Does John wait rapidly?" })).status, "answered");
+    assert.equal((await ace.ask({ text: "John stops quickly.", question: "Does John stop rapidly?" })).status, "unknown");
+  } finally { ace.synonyms.remove(rule); }
+});
+
+test("a transitive adverb rule answers too", async () => {
+  const rule = { class: "adverb", verb: "read", valency: "transitive", from: "quickly", to: "rapidly" } as const;
+  await ace.synonyms.add(rule);
+  try {
+    assert.equal((await ace.ask({ text: "John reads a card quickly.", question: "Does John read a card rapidly?" })).status, "answered");
+  } finally { ace.synonyms.remove(rule); }
+});
+
+// --- narrowing a long text must not lose what only a rule connects
+
+test("on a long text, a sentence that only a synonym rule links to the question is still included", async () => {
+  const rule = { class: "verb", valency: "transitive", from: "buy", to: "purchase" } as const;
+  await ace.synonyms.add(rule);
+  try {
+    const filler = Array.from({ length: 30 }, () => "A machine waits.").join(" ");
+    const r = await ace.ask({ text: `${filler} John buys a card. Mary purchases a card.`, question: "Who purchases something?" });
+    if (r.status !== "answered") assert.fail(`expected answered, got ${r.status}`);
+    const who = r.answers.filter((a) => a.word === "who").map((a) => a.value).sort();
+    assert.deepEqual(who, ["John", "Mary"], "John is only reachable through the buy => purchase rule");
   } finally { ace.synonyms.remove(rule); }
 });

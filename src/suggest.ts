@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import type { Suggestion, SynonymRule, Unmatched } from "./types.ts";
 import { setsOf, type SynonymIndex } from "./synonym-index.ts";
-import { contentStems, stem } from "./select.ts";
+import { contentStems, stemsOf } from "./select.ts";
 import { ruleKey } from "./synonyms.ts";
 
-type Kind = { pos: "n" | "v" | "a"; valency?: "intransitive" | "transitive" };
+type Kind = { pos: "n" | "v" | "a"; valency?: "intransitive" | "transitive" | "ditransitive" };
 
-/** Which words can get a rule: nouns, adjectives and (in)transitive verbs. Names, prepositions and ditransitive verbs cannot yet. */
+/** Which words can get a rule: nouns, adjectives and verbs. Names and prepositions cannot, and an adverb needs to be tied to a verb. */
 function kindOf(wordClass: string): Kind | undefined {
-  if (/ditransitive/.test(wordClass)) return undefined;
+  if (/ditransitive verb/.test(wordClass)) return { pos: "v", valency: "ditransitive" };
   if (/intransitive verb/.test(wordClass)) return { pos: "v", valency: "intransitive" };
   if (/transitive verb/.test(wordClass)) return { pos: "v", valency: "transitive" };
   if (/noun/.test(wordClass)) return { pos: "n" };
@@ -25,16 +25,20 @@ export function suggest(unmatched: Unmatched[], text: string, index: SynonymInde
   const inText = contentStems(text);
   const out: Suggestion[] = [];
   const seen = new Set<string>();
+  const done = new Set<string>();
   for (const u of unmatched) {
     const kind = kindOf(u.wordClass);
     const word = u.word.replace(/^\(at least \d+\)\s*/, "");
     if (!kind || !/^[a-z][a-z-]*$/.test(word)) continue;
+    const slot = `${kind.pos}/${kind.valency ?? ""}/${word}`;
+    if (done.has(slot)) continue; // the same unmatched word listed twice
+    done.add(slot);
 
     const found = new Map<string, { count: number; gloss: string }>();
     for (const id of setsOf(index[kind.pos], word)) {
       const [gloss, members] = index.synsets[id]!;
       for (const m of members) {
-        if (m === word || !inText.has(stem(m))) continue;
+        if (m === word || !stemsOf(m).some((c) => inText.has(c))) continue;
         const hit = found.get(m);
         if (hit) hit.count++;
         else found.set(m, { count: 1, gloss });
