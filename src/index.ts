@@ -15,7 +15,7 @@ import type { SynonymIndex } from "./synonym-index.ts";
 import { toAskResult } from "./ask.ts";
 import type { EntryMessage } from "./engine.ts";
 
-export type { Diagnostic, DiagnosticCode, Range, Severity, ApeMessage, AskResult, Proof, ProofAxiom, Substitution, Unmatched, ParsedText, ParsedEvent, ParsedArg, ParsedObject, ParsedProperty, Plugin, SynonymRule, Suggestion } from "./types.ts";
+export type { Diagnostic, DiagnosticCode, Range, Severity, ApeMessage, AskResult, Proof, ProofAxiom, Substitution, Unmatched, ParsedText, ParsedEvent, ParsedModifier, ParsedArg, ParsedObject, ParsedProperty, Plugin, SynonymRule, Suggestion } from "./types.ts";
 export { buildIndex, type SynonymIndex, type RawSynset } from "./synonym-index.ts";
 export { suggest } from "./suggest.ts";
 export { typeCheck, type TypeSchema } from "./plugins/types.ts";

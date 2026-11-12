@@ -54,3 +54,32 @@ test("a second identical call returns the cached result", () => {
   const a = engine.lint("Every customer inserts.");
   assert.equal(engine.lint("Every customer inserts."), a);
 });
+
+test("parse: an obligation carries its modality and a prepositional modifier with a quoted string", () => {
+  const text = 'I must v:finish a n:logo for Miquel before "2026-11-13".';
+  const [event] = engine.parse(text).parsed.events;
+  assert.equal(event!.verb, "finish");
+  assert.deepEqual(event!.modality, ["must"]);
+  assert.deepEqual(event!.modifiers, [{ preposition: "before", value: { kind: "string", value: "2026-11-13" } }]);
+  assert.equal(slice(text, event!.subject as { range: { start: number; end: number } }), "I");
+  assert.deepEqual(event!.indirect, { kind: "name", name: "Miquel" });
+  assert.match(event!.id, /^r\d+$/);
+});
+
+test("parse: a plain fact has no modality and no modifiers", () => {
+  const [event] = engine.parse("John inserts a card.").parsed.events;
+  assert.equal(event!.modality, undefined);
+  assert.equal(event!.modifiers, undefined);
+});
+
+test("parse: a modal box and each side of a conditional are named", () => {
+  const can = engine.parse("John can insert a card.").parsed.events[0]!;
+  assert.deepEqual(can.modality, ["can"]);
+  const rule = engine.parse("If John inserts a card then Mary waits.").parsed.events;
+  assert.deepEqual(rule.map((e) => [e.verb, e.modality]), [["insert", ["if"]], ["wait", ["then"]]]);
+});
+
+test("parse: an adverb is a modifier of its event", () => {
+  const [event] = engine.parse("John quickly inserts a card.").parsed.events;
+  assert.deepEqual(event!.modifiers, [{ adverb: "quickly" }]);
+});

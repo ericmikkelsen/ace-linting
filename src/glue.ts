@@ -4,22 +4,26 @@
 export const GLUE = String.raw`% ace-linting glue: turns APE results into plain rows that JavaScript can read.
 % Copyright ace-linting contributors. Licensed under GPL-3.0-only (see LICENSE).
 
-:- module(ace_glue, [lint_rows/6, add_entries/3, remove_entries/2, ask_rows/5]).
+:- module(ace_glue, [lint_rows/7, add_entries/3, remove_entries/2, ask_rows/5]).
 
-%% lint_rows(+Text, -MessageRows, -TokenRows, -ObjectRows, -EventRows, -PropertyRows)
+%% lint_rows(+Text, -MessageRows, -TokenRows, -ObjectRows, -EventRows, -PropertyRows, -ModifierRows)
 %  MessageRows: [[Importance, Scope, Sentence, Token, Subject, Description], ...]
 %  (Sentence and Token are numbers, or '' when APE gives none)
 %  TokenRows: one list of tokens per sentence, with APE's start marker removed.
 %  ObjectRows: [[Id, Noun, Sentence, Token], ...]   PropertyRows: [[Id, Adjective, Sentence, Token], ...]
-%  EventRows: [[Verb, [ArgId, ...], Sentence, Token], ...]
-%  Ids are atoms: rN for a discourse referent, n:Name for a proper name.
-lint_rows(Text, MessageRows, TokenRows, ObjectRows, EventRows, PropertyRows) :-
+%  EventRows: [[EventId, Verb, [ArgId, ...], Sentence, Token, Modality], ...]
+%    Modality: the boxes around the event, outermost first (must, can, should, may, not, naf, question,
+%    command, if, then, or); [] for a plain fact.
+%  ModifierRows: [[EventId, Kind, Word, ValueId], ...]: Kind pp (Word is the preposition, ValueId its object)
+%    or adv (Word is the adverb, ValueId is '').
+%  Ids are atoms: rN for a discourse referent, n:Name for a proper name, s:Text for a quoted string.
+lint_rows(Text, MessageRows, TokenRows, ObjectRows, EventRows, PropertyRows, ModifierRows) :-
     ace_to_drs:acetext_to_drs(Text, Sentences, _Trees, Drs, Messages),
     maplist(message_row, Messages, MessageRows),
     maplist(token_row, Sentences, TokenRows),
-    drs_facts(Drs, ObjectRows, EventRows, PropertyRows).
+    drs_facts(Drs, ObjectRows, EventRows, PropertyRows, ModifierRows).
 
-drs_facts(Drs, Objects, Events, Properties) :-
+drs_facts(Drs, Objects, Events, Properties, Modifiers) :-
     copy_term(Drs, D),
     numbervars(D, 0, _),
     findall([Id, Noun, S, T],
@@ -28,13 +32,41 @@ drs_facts(Drs, Objects, Events, Properties) :-
     findall([Id, Adj, S, T],
             ( sub_term(P-S/T, D), compound(P), P =.. [property, Ref, Adj|_], ref_id(Ref, Id) ),
             Properties),
-    findall([Verb, ArgIds, S, T],
-            ( sub_term(P-S/T, D), compound(P), P =.. [predicate, _Event, Verb|Args], Args \== [],
-              maplist(ref_id, Args, ArgIds) ),
-            Events).
+    findall([EventId, Verb, ArgIds, S, T, Modality],
+            ( event_in(D, [], P-S/T, Modality0), P =.. [predicate, Event, Verb|Args], Args \== [],
+              ref_id(Event, EventId), maplist(ref_id, Args, ArgIds), reverse(Modality0, Modality) ),
+            Events),
+    findall([EventId, pp, Prep, ValueId],
+            ( sub_term(modifier_pp(Event, Prep, Value)-_, D), ref_id(Event, EventId), ref_id(Value, ValueId) ),
+            PPs),
+    findall([EventId, adv, Adverb, ''],
+            ( sub_term(modifier_adv(Event, Adverb, _)-_, D), ref_id(Event, EventId) ),
+            Advs),
+    append(PPs, Advs, Modifiers).
+
+% event_in(+Drs, +Boxes, -Condition, -BoxesAround): every condition in Drs with the boxes it sits in, innermost
+% first. Implications, disjunctions and modal boxes are walked into; a plain sub-DRS adds no box.
+event_in(drs(_, Conds), Boxes, Cond, Around) :-
+    member(C, Conds),
+    cond_in(C, Boxes, Cond, Around).
+
+cond_in(C, Boxes, C, Boxes) :- C = _-_, !.
+cond_in(If => Then, Boxes, Cond, Around) :- !,
+    ( event_in(If, [if|Boxes], Cond, Around) ; event_in(Then, [then|Boxes], Cond, Around) ).
+cond_in(A v B, Boxes, Cond, Around) :- !,
+    ( event_in(A, [or|Boxes], Cond, Around) ; event_in(B, [or|Boxes], Cond, Around) ).
+cond_in(Box, Boxes, Cond, Around) :-
+    compound(Box), Box =.. [Op, Sub], Sub = drs(_, _), !,
+    event_in(Sub, [Op|Boxes], Cond, Around).
+cond_in(drs(Rs, Cs), Boxes, Cond, Around) :- !,
+    event_in(drs(Rs, Cs), Boxes, Cond, Around).
+cond_in(Other, Boxes, Cond, Around) :-
+    compound(Other), Other =.. [_|Args], member(Sub, Args), Sub = drs(_, _),
+    event_in(Sub, Boxes, Cond, Around).
 
 ref_id('$VAR'(N), Id) :- !, format(atom(Id), 'r~w', [N]).
 ref_id(named(Name), Id) :- !, format(atom(Id), 'n:~w', [Name]).
+ref_id(string(Text), Id) :- !, format(atom(Id), 's:~w', [Text]).
 ref_id(Other, Id) :- format(atom(Id), '~w', [Other]).
 
 message_row(message(Importance, Scope, Pos, Subject, Description),

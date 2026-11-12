@@ -95,13 +95,13 @@ export async function createEngine(input: EngineInput, factory: SwiplFactory): P
   const parse = (text: string) => {
     const hit = cache.get(text);
     if (hit) return hit;
-    const r = run("ace_glue:lint_rows(Text, Messages, Tokens, Objects, Events, Properties)", { Text: text });
+    const r = run("ace_glue:lint_rows(Text, Messages, Tokens, Objects, Events, Properties, Modifiers)", { Text: text });
     if (!r.success) throw new Error("APE did not return a result");
     const messages = (r["Messages"] as unknown[][]).map(toApeMessage);
     const apeTokens = (r["Tokens"] as unknown[][]).map((s) => s.map(String));
     const result = {
       diagnostics: toDiagnostics(text, messages, { apeTokens }),
-      parsed: buildParsed(text, { objects: r["Objects"] as unknown[][], events: r["Events"] as unknown[][], properties: r["Properties"] as unknown[][] }, apeTokens),
+      parsed: buildParsed(text, { objects: r["Objects"] as unknown[][], events: r["Events"] as unknown[][], properties: r["Properties"] as unknown[][], modifiers: r["Modifiers"] as unknown[][] }, apeTokens),
     };
     cache.set(text, result);
     if (cache.size > 100) cache.delete(cache.keys().next().value as string);

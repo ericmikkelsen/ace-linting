@@ -94,17 +94,28 @@ export type AskResult =
 /** An argument of an event: a noun phrase from the text, a proper name, or an adjective ("is happy"). */
 export type ParsedObject = { kind: "object"; id: string; noun: string; sentence: number; range: Range };
 export type ParsedProperty = { kind: "property"; id: string; adjective: string; sentence: number; range: Range };
-export type ParsedArg = ParsedObject | ParsedProperty | { kind: "name"; name: string };
+export type ParsedArg = ParsedObject | ParsedProperty | { kind: "name"; name: string } | { kind: "string"; value: string };
 
 /** One verb with its arguments. `range` is the verb token; for "be" the object can be a property. */
 export type ParsedEvent = {
+  /** The event's discourse referent, shared by its modifiers. */
+  id: string;
   verb: string;
   sentence: number;
   range: Range;
   subject?: ParsedArg;
   object?: ParsedArg;
   indirect?: ParsedArg;
+  /**
+   * The boxes the event sits in, outermost first: "must", "can", "should", "may", "not", "naf", "question",
+   * "command", "if", "then", "or". Absent for a plain fact. "I must finish a report." is ["must"].
+   */
+  modality?: string[];
+  /** Prepositional phrases and adverbs on the event: "before \"2026-11-13\"" is { preposition: "before", value: { kind: "string", ... } }. */
+  modifiers?: ParsedModifier[];
 };
+
+export type ParsedModifier = { preposition: string; value: ParsedArg } | { adverb: string };
 
 /**
  * What APE understood. Pronouns and "the X" are already resolved, so an event's subject can be an object

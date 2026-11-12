@@ -119,7 +119,7 @@ Keep `ace-linting.js` and the `assets/` folder together. The library is about 12
 |---|---|
 | `createAce(options?)` | Starts APE (and RACE) in a worker. Options: `lexicon` (entries to load), `upstream` (cache folder, URLs), `synonymIndex` (suggestions for synonyms); `apeDir`/`raceDir` for local checkouts. |
 | `ace.lint(text)` | `{ diagnostics }`: each has `severity` (`error` or `warning`), `message`, `range` (character offsets), `sentence`, and often a `suggestion`. Safe to call on every keystroke (`debounce` is exported). |
-| `ace.parse(text)` | What APE understood: verbs with subjects and objects, with ranges and pronouns resolved. |
+| `ace.parse(text)` | What APE understood: verbs with subjects and objects, with ranges and pronouns resolved. Each event also has its `modality` (the boxes around it, outermost first: `["must"]` for "I must finish a report.") and `modifiers` (prepositions with their object, such as `before "2026-11-13"`, and adverbs). |
 | `ace.ask({ text, question })` | `answered` (answers and a proof numbered by your own sentences), `unknown`, `invalid` (diagnostics for the text and the question) or `timeout`. Option: `timeoutMs`. |
 | `ace.lexicon.add / remove / list` | Add or remove words; entries that clash with function words or other classes are rejected with the reason. |
 | `ace.synonyms.add / remove / list` | Say two words mean the same, as a rule that appears in proofs. |
