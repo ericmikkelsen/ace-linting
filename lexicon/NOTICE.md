@@ -24,7 +24,7 @@ When describing applications based on VerbNet, cite: Kipper, Korhonen, Ryant and
 
 ## Core vocabulary (source tag `core`) and inflection overrides
 
-Written by the ace-linting authors and dedicated to the public domain (CC0 1.0): `lexicon/core/`, and `lexicon/oewn/overrides.json`. The full legal text is `lexicon/licenses/CC0-1.0.txt`.
+Written by the ace-linting authors and dedicated to the public domain (CC0 1.0): `lexicon/core/`, `lexicon/oewn/overrides.json` and `lexicon/oewn/homographs.json`. The full legal text is `lexicon/licenses/CC0-1.0.txt`.
 
 ## Synonym index (generated)
 

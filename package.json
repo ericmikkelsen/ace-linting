@@ -29,6 +29,7 @@
     "lexicon/licenses",
     "lexicon/NOTICE.md",
     "lexicon/oewn/overrides.json",
+    "lexicon/oewn/homographs.json",
     "lexicon/oewn/oewn.jsonl",
     "lexicon/dist/synonyms.json",
     "LICENSE",

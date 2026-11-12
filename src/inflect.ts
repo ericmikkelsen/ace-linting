@@ -30,3 +30,17 @@ export function regularDegree(word: string): { comp: string; sup: string } | und
   if (/[^aeiou][aeiou][^aeiouwxy]$/.test(word)) return undefined; // doubling
   return { comp: `${word}er`, sup: `${word}est` };
 }
+
+/**
+ * WordNet lists a verb's irregular forms without saying which is which. Given them (without -ing and -s forms),
+ * tell the simple past from the participle: with one form they are the same (bought); with two the participle is the one
+ * with a participle ending (written, begun, sung, swum, drunk, shown, gone, worn, lain), the other is the past.
+ */
+export function pastAndParticiple(forms: string[]): { pp?: string; past?: string } {
+  if (forms.length === 0) return {};
+  if (forms.length === 1) return { pp: forms[0]!, past: forms[0]! };
+  const participleEnding = /(en|wn|un|ung|um|unk|ne|rn)$/;
+  const pp = forms.find((f) => participleEnding.test(f)) ?? forms.find((f) => /n$/.test(f)) ?? forms[forms.length - 1]!;
+  const past = forms.find((f) => f !== pp);
+  return past === undefined ? { pp } : { pp, past };
+}

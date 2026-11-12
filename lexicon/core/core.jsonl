@@ -97,7 +97,7 @@
 {"class":"noun-mass","lemma":"time","source":"core"}
 // --- transitive verbs
 {"class":"verb","lemma":"call","valency":"transitive","source":"core"}
-{"class":"verb","lemma":"write","valency":"transitive","pp":"written","source":"core"}
+{"class":"verb","lemma":"write","valency":"transitive","pp":"written","past":"wrote","source":"core"}
 {"class":"verb","lemma":"read","valency":"transitive","pp":"read","source":"core"}
 {"class":"verb","lemma":"finish","valency":"transitive","source":"core"}
 {"class":"verb","lemma":"start","valency":"transitive","source":"core"}
@@ -124,15 +124,15 @@
 // --- ditransitive verbs
 {"class":"verb","lemma":"send","valency":"ditransitive","prep":"to","pp":"sent","source":"core"}
 {"class":"verb","lemma":"bring","valency":"ditransitive","prep":"to","pp":"brought","source":"core"}
-{"class":"verb","lemma":"show","valency":"ditransitive","prep":"to","pp":"shown","source":"core"}
+{"class":"verb","lemma":"show","valency":"ditransitive","prep":"to","pp":"shown","past":"showed","source":"core"}
 {"class":"verb","lemma":"tell","valency":"ditransitive","prep":"to","pp":"told","source":"core"}
 // --- intransitive verbs
 {"class":"verb","lemma":"arrive","valency":"intransitive","source":"core"}
-{"class":"verb","lemma":"leave","valency":"intransitive","source":"core"}
+{"class":"verb","lemma":"leave","valency":"intransitive","pp":"left","source":"core"}
 {"class":"verb","lemma":"work","valency":"intransitive","source":"core"}
 {"class":"verb","lemma":"rest","valency":"intransitive","source":"core"}
 {"class":"verb","lemma":"stop","valency":"intransitive","pp":"stopped","source":"core"}
-{"class":"verb","lemma":"begin","valency":"intransitive","pp":"begun","source":"core"}
+{"class":"verb","lemma":"begin","valency":"intransitive","pp":"begun","past":"began","source":"core"}
 // --- adjectives
 {"class":"adjective","lemma":"urgent","source":"core"}
 {"class":"adjective","lemma":"important","source":"core"}

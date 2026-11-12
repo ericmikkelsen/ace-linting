@@ -1,0 +1,4 @@
+{
+  "_note": "Hand-written by the ace-linting authors (CC0 1.0). Past forms that are also the base form of a rarer verb. For these words the past form wins and the rarer verb is left out of the lexicon; for every other clash the base verb wins and the past form is left out (see PROVENANCE.md).",
+  "pastWins": ["saw", "found", "fell", "felt", "bound", "spat", "smelt"]
+}

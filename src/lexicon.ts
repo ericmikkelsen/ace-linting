@@ -10,7 +10,16 @@ type Base = { lemma: string; source?: string };
 export type LexEntry =
   | (Base & { class: "noun"; plural?: string; gender?: Gender })
   | (Base & { class: "noun-mass"; gender?: Gender })
-  | (Base & { class: "verb"; valency: Valency; sg3?: string; pp?: string; prep?: string })
+  | (Base & {
+      class: "verb";
+      valency: Valency;
+      sg3?: string;
+      /** Participle, used in the passive ("is bought by"). */
+      pp?: string;
+      /** Simple past ("bought"). Defaults to the participle; give it when they differ (wrote, written). `false` leaves the past out. */
+      past?: string | false;
+      prep?: string;
+    })
   | (Base & { class: "adjective"; comp?: string; sup?: string })
   | (Base & { class: "adverb"; comp?: string; sup?: string });
 
@@ -24,6 +33,16 @@ export class LexiconError extends Error {
     super(message);
     this.name = "LexiconError";
   }
+}
+
+/**
+ * The simple past of a verb entry, or undefined when there is none. The past is a word of its own (docs/tense.md):
+ * "bought" is not the same predicate as "buy", so a past fact never answers a present question.
+ */
+export function pastForm(e: Extract<LexEntry, { class: "verb" }>): string | undefined {
+  if (e.past === false) return undefined;
+  const form = e.past ?? e.pp ?? regularPp(e.lemma);
+  return form !== undefined && /^[a-z][a-z-]*$/.test(form) ? form : undefined; // no apostrophes or capitals: APE could not read the word
 }
 
 /** Convert one entry into APE lexicon terms (one per line, each ending in a period). */
@@ -42,12 +61,15 @@ export function toApeLines(e: LexEntry): string[] {
       if (ppForm === undefined) throw new LexiconError(`verb '${e.lemma}' needs an explicit past participle (pp)`);
       const pp = atom(ppForm);
       const k = e.valency === "intransitive" ? "iv" : e.valency === "transitive" ? "tv" : "dv";
-      if (k === "dv") {
-        const prep = atom(e.prep ?? "");
-        return [`dv_finsg(${sg3}, ${l}, ${prep}).`, `dv_infpl(${l}, ${l}, ${prep}).`, `dv_pp(${pp}, ${l}, ${prep}).`];
-      }
-      if (k === "iv") return [`iv_finsg(${sg3}, ${l}).`, `iv_infpl(${l}, ${l}).`];
-      return [`tv_finsg(${sg3}, ${l}).`, `tv_infpl(${l}, ${l}).`, `tv_pp(${pp}, ${l}).`];
+      const past = pastForm(e);
+      const prep = atom(e.prep ?? "");
+      const tail = k === "dv" ? `, ${prep}` : "";
+      // The past is its own word. When it equals the infinitive (cut, put) the plural form already exists, so only the singular is added.
+      const pastLines =
+        past === undefined ? [] : past === e.lemma ? [`${k}_finsg(${atom(past)}, ${l}${tail}).`] : [`${k}_finsg(${atom(past)}, ${atom(past)}${tail}).`, `${k}_infpl(${atom(past)}, ${atom(past)}${tail}).`];
+      if (k === "dv") return [`dv_finsg(${sg3}, ${l}, ${prep}).`, `dv_infpl(${l}, ${l}, ${prep}).`, `dv_pp(${pp}, ${l}, ${prep}).`, ...pastLines];
+      if (k === "iv") return [`iv_finsg(${sg3}, ${l}).`, `iv_infpl(${l}, ${l}).`, ...pastLines];
+      return [`tv_finsg(${sg3}, ${l}).`, `tv_infpl(${l}, ${l}).`, `tv_pp(${pp}, ${l}).`, ...pastLines];
     }
     case "adjective": {
       const out = [`adj_itr(${l}, ${l}).`];
@@ -77,13 +99,18 @@ export function templatesFor(e: LexEntry): string[][] {
       return [[`A customer inserts some ${e.lemma}.`]];
     case "verb": {
       const sg3 = e.sg3 ?? addS(e.lemma);
-      if (e.valency === "intransitive") return [[`A customer ${sg3}.`], [`Two customers ${e.lemma}.`]];
-      if (e.valency === "transitive") {
+      const past = pastForm(e);
+      let groups: string[][];
+      if (e.valency === "intransitive") groups = [[`A customer ${sg3}.`], [`Two customers ${e.lemma}.`]];
+      else if (e.valency === "transitive") {
         const pp = e.pp ?? regularPp(e.lemma);
-        return [[`A customer ${sg3} a card.`], [`Two customers ${e.lemma} a card.`], ...(pp ? [[`A card is ${pp} by a customer.`]] : [])];
+        groups = [[`A customer ${sg3} a card.`], [`Two customers ${e.lemma} a card.`], ...(pp ? [[`A card is ${pp} by a customer.`]] : [])];
+      } else groups = [[`A customer ${sg3} a card ${e.prep ? e.prep : "to"} a machine.`]];
+      if (past) {
+        const preps = e.valency === "ditransitive" ? ` a card ${e.prep ? e.prep : "to"} a machine` : e.valency === "transitive" ? " a card" : "";
+        groups.push([`A customer ${past}${preps}.`]);
       }
-      const prep = e.prep ? ` ${e.prep}` : " to";
-      return [[`A customer ${sg3} a card${prep} a machine.`]];
+      return groups;
     }
     case "adjective":
       return [[`A customer is ${e.lemma}.`], ...(e.comp ? [[`A customer is ${e.comp} than a card.`]] : [])];
@@ -121,6 +148,7 @@ export function checkEntry(value: unknown, line?: number): LexEntry {
   const lemma = v["lemma"];
   if (typeof lemma !== "string" || !/^[a-z][a-z-]*$/.test(lemma)) throw new LexiconError(`${where}lemma must be lowercase letters (hyphens allowed): '${String(lemma)}'`);
   if (v["gender"] !== undefined && !GENDERS.has(String(v["gender"]))) throw new LexiconError(`${where}bad gender '${String(v["gender"])}'`);
+  if (v["past"] !== undefined && v["past"] !== false && !(typeof v["past"] === "string" && /^[a-z][a-z-]*$/.test(v["past"]))) throw new LexiconError(`${where}past must be lowercase letters (hyphens allowed) or false: '${String(v["past"])}'`);
   if (v["class"] === "verb" && !VALENCIES.has(String(v["valency"]))) throw new LexiconError(`${where}verb needs valency intransitive, transitive or ditransitive`);
   return v as unknown as LexEntry;
 }

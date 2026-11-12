@@ -1,6 +1,6 @@
 # Plan: tenses
 
-Status: P0 is built; P1 is next. The rest is plan. Decision (from the project owner): the deeper fix is not needed now. It is acceptable to treat a past-tense form such as "bought" as **a different word** from "buy", as long as the plan covers every verb, not just a few.
+Status: P0 and P1 are built. P2 and P3 remain a plan.
 
 ## The problem
 
@@ -78,6 +78,15 @@ Constructions with helper words cannot be added through the lexicon. Two routes:
 - **Rewrite before parsing** (recommended if pursued): a normalizer turns `was bought`, `has bought`, `will buy`, `is buying`, `did buy` into the present form plus a visible marker (for example a prepositional phrase with a time constant: `John buys a card at Past.`), with a source map so diagnostics point at the user's original words. Questions are rewritten the same way (`Did John buy a card?` to `Does John buy a card at Past?`). It needs: the marker design (Past, Now, Future, and how an unmarked sentence behaves), the offset map, and a hook for it in `createAce`.
 - **Change APE's grammar**: not recommended. We do not ship APE; a fork would need its own hosting, pinned hashes, license handling and upkeep, and APE's grammar interacts in ways that are easy to break.
 - Done when: its own design document exists, with the marker semantics checked against RACE.
+
+## What P1 did (2026-11-12)
+
+- `LexEntry` verbs have `past` (default: the participle; `false` leaves it out). The past is its own word; when it equals the infinitive (cut, put) only the singular form is added.
+- The lexicon build derives `past` for every verb. About 190 irregular verbs carry an explicit `past`.
+- **A bug found on the way:** the participle heuristic picked `began` for `begin` (both end in -n), so the old lexicon had the wrong participle for begin and a few others. It is replaced by `pastAndParticiple`, tested on 15 pairs (wrote/written, began/begun, sang/sung, swam/swum, drank/drunk, showed/shown, went/gone and more).
+- **Conflicts** with other verbs' forms are settled in the build: the base verb wins by default, and `lexicon/oewn/homographs.json` lists seven forms where the past must win (saw, found, fell, felt, bound, spat, smelt). Several valencies of one verb share their past; a rival verb with the same past loses it. 49 verb entries end up without a past form (listed in the generated PROVENANCE.md), for example lie/lay, bear/bore, grind/ground, and spelling variants such as install/instal. A past form only counts as clashing when APE complains about verb forms; an adverb that is also a noun has nothing to do with it.
+- **Checked** on the full generated lexicon: 25 of 25 sample sentences are valid, including bought, wrote, saw, found, fell, felt, left, went, took, gave a card to Mary, cut, put, read, ran, sat, stood, told, ate, drank, plural subjects and a relative clause.
+- **Cost:** the generated lexicon grew from 4.8 MB to 5.4 MB of text; loading all 74,000 entries took about 0.7 s (it was about 0.6 s), and Node's process memory went from about 327 MB to 361 MB.
 
 ## Risks and open questions
 

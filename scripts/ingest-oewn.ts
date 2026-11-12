@@ -5,7 +5,7 @@
 //        [--nouns N] [--verbs N] [--adjectives N] [--adverbs N]  (default: every plain lowercase lemma)
 import fs from "node:fs";
 import path from "node:path";
-import { addS, regularPp, regularDegree } from "../src/inflect.ts";
+import { addS, regularPp, regularDegree, pastAndParticiple } from "../src/inflect.ts";
 import type { LexEntry, Valency } from "../src/lexicon.ts";
 
 const args = process.argv.slice(2);
@@ -58,7 +58,7 @@ if (fs.existsSync(vnDir)) {
   }
 }
 
-const overrides = JSON.parse(fs.readFileSync("lexicon/oewn/overrides.json", "utf8")) as { verbs: Record<string, { pp?: string }> };
+const overrides = JSON.parse(fs.readFileSync("lexicon/oewn/overrides.json", "utf8")) as { verbs: Record<string, { pp?: string; past?: string }> };
 
 const plainWord = /^[a-z]+$/;
 type Cand = { lemma: string; senses: number; body: PosBody };
@@ -90,11 +90,15 @@ for (const c of pick("v", quota.verb)) {
   const sForm = forms.find((f) => /s$/.test(f) && f !== c.lemma);
   if (sForm && sForm !== addS(c.lemma)) sg3 = sForm;
   const pastLike = forms.filter((f) => f !== sForm);
-  if (pastLike.length === 1) pp = pastLike[0];
-  else if (pastLike.length >= 2) pp = pastLike.find((f) => /(en|n|ne)$/.test(f));
-  else pp = regularPp(c.lemma);
+  const split = pastAndParticiple(pastLike);
+  pp = split.pp ?? regularPp(c.lemma);
   pp = overrides.verbs[c.lemma]?.pp ?? pp;
   if (pp === undefined) { skipped.push(`verb ${c.lemma}: past participle unclear`); continue; }
+  // The simple past. WordNet lists the irregular forms without saying which is which: with two (wrote, written) the one
+  // that is not the participle is the past; with one (bought) past and participle are the same, which is the default.
+  let past: string | undefined = overrides.verbs[c.lemma]?.past;
+  past ??= split.past;
+  if (past !== undefined && (past === pp || !/^[a-z][a-z-]*$/.test(past))) past = undefined;
 
   const v = vn.get(c.lemma);
   const valencies: { valency: Valency; prep?: string }[] = [];
@@ -111,7 +115,7 @@ for (const c of pick("v", quota.verb)) {
     if ([...ids].some((i) => WN_DITR.has(i))) valencies.push({ valency: "ditransitive", prep: "to" });
   }
   if (!valencies.length) { skipped.push(`verb ${c.lemma}: no usable frame`); continue; }
-  for (const { valency, prep } of valencies) out.push({ class: "verb", lemma: c.lemma, valency, ...(sg3 ? { sg3 } : {}), pp, ...(prep ? { prep } : {}), source });
+  for (const { valency, prep } of valencies) out.push({ class: "verb", lemma: c.lemma, valency, ...(sg3 ? { sg3 } : {}), pp, ...(past ? { past } : {}), ...(prep ? { prep } : {}), source });
 }
 
 // adjectives and adverbs: degree forms from WordNet exceptions, else regular rules for short words

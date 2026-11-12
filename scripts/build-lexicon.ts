@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createAce, parseEntries, toApeLines, templatesFor, LexiconError, type LexEntry } from "../src/index.ts";
-import { formsOf, warnedWord } from "../src/lexicon.ts";
+import { formsOf, warnedWord, pastForm } from "../src/lexicon.ts";
 
 const args = process.argv.slice(2);
 const opt = (name: string, fallback: string) => {
@@ -50,8 +50,21 @@ const convertible = entries.filter((e) => { try { toApeLines(e); return true; } 
 // a word that is both an adverb and a noun, ...). For each warned word the best entry wins and the rest are rejected:
 // earlier source first (our core before WordNet), then noun, verb, adjective, adverb. Repeat until APE stops warning.
 const CLASS_RANK: Record<string, number> = { noun: 0, "noun-mass": 0, verb: 1, adjective: 2, adverb: 3 };
+const byPriority = (x: LexEntry, y: LexEntry) => (sourceRank.get(x) ?? 0) - (sourceRank.get(y) ?? 0) || (CLASS_RANK[x.class] ?? 9) - (CLASS_RANK[y.class] ?? 9);
+
+// Past forms are words of their own and collide with other verbs' forms (saw, found, felt). The base words win by
+// default and the past form is left out; lexicon/oewn/homographs.json lists the forms where the past must win instead.
+const pastWins = new Set<string>(fs.existsSync("lexicon/oewn/homographs.json") ? (JSON.parse(fs.readFileSync("lexicon/oewn/homographs.json", "utf8")) as { pastWins: string[] }).pastWins : []);
+// A verb's base forms (lemma, third person, plural) are separate from its participle and past: the participle and past are
+// different predicates, so a verb whose past equals its participle (feel, felt, felt) does not clash with itself.
+const baseForms = (e: LexEntry) =>
+  toApeLines(e.class === "verb" ? { ...e, past: false } : e).filter((l) => !/^[a-z]v_pp\(|^dv_pp\(/.test(l)).map((l) => /^[a-z_]+\(\s*'?([^',()]+)'?\s*,/.exec(l)?.[1] ?? "");
+const participleOf = (e: LexEntry) => (e.class === "verb" ? e.pp : undefined);
+const pastDropped: string[] = [];
+const dropPast = (e: Extract<LexEntry, { class: "verb" }>): LexEntry => { const n = { ...e, past: false as const }; sourceRank.set(n, sourceRank.get(e) ?? 0); return n; };
+
 let usable = convertible;
-for (let round = 1; round <= 5; round++) {
+for (let round = 1; round <= 6; round++) {
   const scratch = await createAce({ apeDir });
   const first = await scratch.addEntries(usable);
   await scratch.dispose();
@@ -62,15 +75,39 @@ for (let round = 1; round <= 5; round++) {
   }
   if (warned.size === 0) break;
   const drop = new Map<LexEntry, string>();
+  const noPast = new Map<LexEntry, string>();
   for (const [word, message] of warned) {
-    const group = usable.filter((e) => formsOf(e).includes(word));
-    group.sort((x, y) => (sourceRank.get(x) ?? 0) - (sourceRank.get(y) ?? 0) || (CLASS_RANK[x.class] ?? 9) - (CLASS_RANK[y.class] ?? 9));
-    // A single entry that APE warns about conflicts with APE's own lexicon or function words: reject it. Otherwise keep the best one.
-    for (const e of group.slice(group.length === 1 ? 0 : 1)) if (!drop.has(e)) drop.set(e, `APE warns about '${word}': ${message}`);
+    // Verb forms clash only with verb forms. Anything else APE complains about (an adverb that is also a noun) has nothing to do with tense.
+    const verbMessage = /\bverb\b/.test(message);
+    const group = usable.filter((e) => formsOf(e).includes(word) && (!verbMessage || e.class === "verb"));
+    const claimsBase = (e: LexEntry) => baseForms(e).includes(word) || (/participle/.test(message) && participleOf(e) === word);
+    const base = group.filter(claimsBase).sort(byPriority);
+    const pastOnly = verbMessage ? group.filter((e) => !claimsBase(e) && e.class === "verb" && pastForm(e) === word).sort(byPriority) : [];
+    const why = `APE warns about '${word}': ${message}`;
+    // Several valencies of one verb (fall as transitive and intransitive) share their past form; only a different verb is a rival.
+    const winnerLemma = pastOnly[0]?.lemma;
+    const rivals = pastOnly.filter((e) => e.lemma !== winnerLemma);
+    if (pastOnly.length && base.length && pastWins.has(word)) {
+      for (const e of base) if (!drop.has(e)) drop.set(e, `its form '${word}' is the past of '${winnerLemma}', which wins (homographs.json)`);
+      for (const e of rivals) noPast.set(e, why);
+      continue;
+    }
+    // The past is left out when a base word has the form. With no base word, one verb may keep it and rivals lose it;
+    // a lone verb that APE still warns about clashes with APE itself, so it loses it too.
+    for (const e of base.length === 0 && rivals.length ? rivals : pastOnly) noPast.set(e, why);
+    // base words: as before, keep the best, reject the rest; a lone claimant that APE warns about is rejected
+    const alone = base.length === 1 && pastOnly.length === 0;
+    for (const e of base.slice(alone ? 0 : 1)) if (!drop.has(e)) drop.set(e, why);
   }
   for (const [e, why] of drop) rejected.push({ entry: e, why });
-  usable = usable.filter((e) => !drop.has(e));
-  console.log(`conflict round ${round}: ${warned.size} warned words, ${drop.size} entries rejected`);
+  const swapped = new Map<LexEntry, LexEntry>();
+  for (const [e, why] of noPast) {
+    if (drop.has(e) || e.class !== "verb") continue;
+    swapped.set(e, dropPast(e));
+    pastDropped.push(`${e.lemma} (${e.valency}): past '${pastForm(e)}' left out: ${why}`);
+  }
+  usable = usable.filter((e) => !drop.has(e)).map((e) => swapped.get(e) ?? e);
+  console.log(`conflict round ${round}: ${warned.size} warned words, ${drop.size} entries rejected, ${swapped.size} past forms left out`);
 }
 
 // Pass 2: a clean APE with only the usable entries; each must parse in its template sentences.
@@ -117,6 +154,7 @@ const report = [
   `Accepted: ${accepted.length}. Rejected: ${rejected.length}. Duplicates dropped (earlier source wins): ${duplicates.length}. Overlap with APE's built-in lexicon: ${overlaps.length}.`,
   "",
   ...(rejected.length ? ["## Rejected", "", ...rejected.map((r) => `- ${r.entry.class} ${r.entry.lemma}: ${r.why}`), ""] : []),
+  ...(pastDropped.length ? ["## Past forms left out", "", `${pastDropped.length} verbs keep their other forms but have no past form here:`, "", ...pastDropped.map((o) => `- ${o}`), ""] : []),
   ...(overlaps.length ? ["## Also in APE's built-in lexicon", "", ...overlaps.map((o) => `- ${o}`), ""] : []),
 ];
 fs.writeFileSync(path.join(outDir, "PROVENANCE.md"), report.join("\n"));
