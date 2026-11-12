@@ -23,9 +23,10 @@ Every customer who inserts a card is happy.
 You need Node 22.12 or later, and access to the repository (it is private: sign in to GitHub with `gh auth login` or use your own credentials).
 
 ```bash
-git clone --recurse-submodules https://github.com/ericmikkelsen/ace-linting.git
+git clone https://github.com/ericmikkelsen/ace-linting.git
 cd ace-linting
 npm install
+npm run vendor            # APE and RACE into vendor/, for the offline demo and the tests
 npm run dev:demo          # open http://localhost:5173/
 ```
 
@@ -152,7 +153,7 @@ npm run build:browser      # dist-browser/ for browsers
 npm run dev:demo           # the demo
 ```
 
-`vendor/APE` and `vendor/RACE` are git submodules used only during development and tests. They are not part of the published package.
+`vendor/APE` and `vendor/RACE` are checkouts of APE and RACE at the pinned commits, used only during development and tests. `npm run vendor` fetches them (`npm test` does it first). They are not git submodules, so the package installs as a git dependency, and they are not part of the published package.
 
 ## Licensing
 

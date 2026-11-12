@@ -52,6 +52,8 @@
     "webassembly"
   ],
   "scripts": {
+    "vendor": "node scripts/fetch-vendor.ts",
+    "pretest": "npm run vendor",
     "spike": "node scripts/spike.mjs",
     "test": "tsc --noEmit && node --test tests/*.test.ts",
     "build:lexicon": "node scripts/build-lexicon.ts",

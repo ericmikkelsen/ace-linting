@@ -7,7 +7,7 @@ Status: DRAFT 2 (decisions from review applied). Nothing is built. The spike in 
 - Name: `ace-linting` (the package also exposes `ask`; the name stays).
 - New repo; importable from Node and browser; extension functions are part of v1.
 - License: GPL-3.0-only. RACE is GPL-3.0 with no "or later" stated, and APE is LGPL-3.0-or-later, so the combined work is GPL-3.0. Not legal advice; confirm before publishing. Clex is not bundled until its COMLEX/LDC origin is cleared (see `THIRD_PARTY_LICENSES.md`).
-- Distribution: our package ships none of APE or RACE. They are fetched from upstream at pinned commits and checked against recorded hashes (at install/build time in Node, at first load in the browser). The `vendor/` submodules are for development only and are excluded from the published package (`files` whitelist). Prebuilt images containing their code are not shipped; the Prolog file system is assembled at load time, as the spike does. Any hosted demo fetches them from upstream too.
+- Distribution: our package ships none of APE or RACE. They are fetched from upstream at pinned commits and checked against recorded hashes (at install/build time in Node, at first load in the browser). The `vendor/` checkouts (`npm run vendor`) are for development only and are excluded from the published package (`files` whitelist). Prebuilt images containing their code are not shipped; the Prolog file system is assembled at load time, as the spike does. Any hosted demo fetches them from upstream too.
 - Build steps are fine, so a bundler is allowed.
 - Size budget: about 50 MB total, with the Prolog image fetched lazily on first use.
 - Unknown stays unknown: a question the text cannot prove is reported as "unknown", never converted to "no".
@@ -40,7 +40,7 @@ Not a goal for v1: autocomplete or next-word suggestions, a new grammar, LLM tra
 
 - TypeScript (strict), compiled to ES modules; output types are exported and pinned by a type-level test (`tsc --noEmit`).
 - `swipl-wasm` (npm) as the Prolog runtime.
-- APE and RACE vendored as pinned git submodules (they already pin each other).
+- APE and RACE checked out into vendor/ at the pinned commits by `npm run vendor` (not submodules: RACE nests APE at a symlinked path, which breaks recursive clones and npm git installs).
 - Lexicon: our own clean lexicon (`lexicon/`, provenance recorded), loaded through APE's user-lexicon mechanism.
 - Tests: `node --test`. No framework dependency.
 
@@ -88,7 +88,7 @@ src/worker.ts       → worker entry (browser Worker / Node worker_threads)
 src/diagnostics.ts  → map APE messages to {severity, code, message, range}
 src/lexicon.ts      → add/remove words, generate inflected forms, validate conflicts
 src/extensions.ts   → plugin hooks
-vendor/APE, vendor/RACE → git submodules, pinned, not edited
+vendor/APE, vendor/RACE → fetched by npm run vendor, pinned, gitignored, not edited
 prolog/             → thin glue predicates we write (entry points, serialization)
 scripts/            → build-image, spike
 tests/              → fixtures: sentence → expected diagnostics / answers

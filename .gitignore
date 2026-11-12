@@ -8,3 +8,7 @@ lexicon/oewn/skipped.txt
 dist-browser/
 demo-dist/
 *.tgz
+
+# APE and RACE for development and tests, checked out by npm run vendor (scripts/fetch-vendor.ts)
+vendor/APE
+vendor/RACE
