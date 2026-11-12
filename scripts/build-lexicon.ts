@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createAce, parseEntries, toApeLines, templatesFor, LexiconError, type LexEntry } from "../src/index.ts";
+import { formsOf, warnedWord } from "../src/lexicon.ts";
 
 const args = process.argv.slice(2);
 const opt = (name: string, fallback: string) => {
@@ -49,7 +50,6 @@ const convertible = entries.filter((e) => { try { toApeLines(e); return true; } 
 // a word that is both an adverb and a noun, ...). For each warned word the best entry wins and the rest are rejected:
 // earlier source first (our core before WordNet), then noun, verb, adjective, adverb. Repeat until APE stops warning.
 const CLASS_RANK: Record<string, number> = { noun: 0, "noun-mass": 0, verb: 1, adjective: 2, adverb: 3 };
-const formsOf = (e: LexEntry) => toApeLines(e).map((l) => /^[a-z_]+\(\s*'?([^',()]+)'?\s*,/.exec(l)?.[1] ?? "");
 let usable = convertible;
 for (let round = 1; round <= 5; round++) {
   const scratch = await createAce({ apeDir });
@@ -57,7 +57,7 @@ for (let round = 1; round <= 5; round++) {
   await scratch.dispose();
   const warned = new Map<string, string>();
   for (const m of first.messages) {
-    const word = m.message.split(":")[0]!.trim();
+    const word = warnedWord(m.message);
     if (word) warned.set(word, m.message);
   }
   if (warned.size === 0) break;

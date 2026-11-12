@@ -6,7 +6,7 @@ import { loadUpstream, webFetch, memoryStore, type Store } from "./upstream.ts";
 import { idbStore } from "./idb-store.ts";
 import { BROWSER_BUILD } from "./env.ts";
 import { UPSTREAM } from "./upstream-manifest.ts";
-import { toApeLines, checkEntry, type LexEntry } from "./lexicon.ts";
+import { toApeLines, checkEntry, templatesFor, entryKey, matchesRef, sameEntry, formsOf, warnedWord, type LexEntry, type LexRef, type LexiconChange } from "./lexicon.ts";
 import { splitSentences } from "./tokenize.ts";
 import { selectRelevant, contentStems, stem } from "./select.ts";
 import { compileRule, ruleKey, SynonymError } from "./synonyms.ts";
@@ -22,7 +22,7 @@ export { typeCheck, type TypeSchema } from "./plugins/types.ts";
 export type { FileMap } from "./engine.ts";
 export { debounce } from "./debounce.ts";
 export { DEFAULT_BASE_URLS, UpstreamError, loadUpstream, type UpstreamManifest } from "./upstream.ts";
-export type { LexEntry, Gender, Valency } from "./lexicon.ts";
+export type { LexEntry, Gender, Valency, LexRef, LexiconChange } from "./lexicon.ts";
 export { parseEntries, toApeLines, templatesFor, LexiconError } from "./lexicon.ts";
 export type { EntryMessage } from "./engine.ts";
 
@@ -101,7 +101,17 @@ export type Ace = {
    * a question that cannot be proved is `unknown`, never "no".
    */
   ask(options: AskOptions): Promise<AskResult>;
-  /** Add lexicon entries. APE's own conflict warnings (word defined twice, function-word redefinition) come back in `messages`. */
+  /**
+   * The user's words. `add` checks each entry (conflicts with function words or other classes, parsing in sample sentences)
+   * and keeps only what is safe; `remove` takes words out again; `list` shows what is in. APE's built-in words cannot be removed:
+   * an entry for a word it already knows adds forms next to the built-in ones.
+   */
+  lexicon: {
+    add(entries: LexEntry | LexEntry[], options?: { validate?: boolean }): Promise<LexiconChange>;
+    remove(refs: LexRef | LexRef[]): Promise<{ removed: LexEntry[] }>;
+    list(): LexEntry[];
+  };
+  /** Add lexicon entries without any checking (the fast path for a large trusted list). Prefer `lexicon.add`. APE's own conflict warnings (word defined twice, function-word redefinition) come back in `messages`. */
   addEntries(entries: LexEntry[]): Promise<AddResult>;
   /** Stop the worker. Pending calls reject. */
   dispose(): Promise<void>;
@@ -195,8 +205,9 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
   let nextId = 1;
   let disposed = false;
   const pending = new Map<number, { resolve: (r: WorkerResponse) => void; reject: (e: Error) => void }>();
-  /** Lexicon text added so far, replayed into a fresh worker after a restart. */
-  const lexiconChunks: string[] = [];
+  /** The user's lexicon as it stands now, replayed into a fresh worker after a restart. */
+  const lexicon = new Map<string, LexEntry>();
+  const textOf = (entries: LexEntry[]) => entries.map((e) => toApeLines(e).join("\n")).join("\n");
 
   const failAll = (err: Error) => {
     for (const p of pending.values()) p.reject(err);
@@ -237,8 +248,8 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
   const initWorker = async () => {
     const init = await call({ type: "init", ape, ...(race ? { race } : {}) });
     if (!init.ok) throw new AceError(`could not start APE: ${init.error}`);
-    for (const prologText of lexiconChunks) {
-      const res = await call({ type: "addEntries", prologText });
+    if (lexicon.size) {
+      const res = await call({ type: "addEntries", prologText: textOf([...lexicon.values()]) });
       if (!res.ok) throw new AceError(`could not restore the lexicon: ${res.error}`);
     }
   };
@@ -260,13 +271,24 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
     throw e;
   }
 
-  const addEntries = async (entries: LexEntry[]): Promise<AddResult> => {
-    const prologText = entries.map((e) => toApeLines(checkEntry(e)).join("\n")).join("\n");
-    const res = await call({ type: "addEntries", prologText });
+  const workerAdd = async (entries: LexEntry[]): Promise<AddResult> => {
+    const res = await call({ type: "addEntries", prologText: textOf(entries) });
     if (!res.ok) throw new AceError(res.error);
     if (res.type !== "addEntries") throw new AceError("unexpected worker response");
-    lexiconChunks.push(prologText);
     return { count: res.count, messages: res.messages };
+  };
+  const workerRemove = async (entries: LexEntry[]) => {
+    if (!entries.length) return;
+    const res = await call({ type: "removeEntries", prologText: textOf(entries) });
+    if (!res.ok) throw new AceError(res.error);
+  };
+
+  /** The fast path for a large trusted list: no conflict handling, no sample sentences. */
+  const addEntries = async (entries: LexEntry[]): Promise<AddResult> => {
+    const checked = entries.map((e) => checkEntry(e));
+    const result = await workerAdd(checked);
+    for (const e of checked) lexicon.set(entryKey(e), e);
+    return result;
   };
   if (options.lexicon?.length) await addEntries(options.lexicon);
 
@@ -362,8 +384,77 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
     return [...chosen].flatMap((rule) => compileRule(rule).map((sentence) => ({ sentence, rule })));
   };
 
+  const lexiconAdd = async (input: LexEntry | LexEntry[], opts: { validate?: boolean } = {}): Promise<LexiconChange> => {
+    const validate = opts.validate ?? true;
+    const entries = (Array.isArray(input) ? input : [input]).map((e) => checkEntry(e));
+    entries.forEach((e) => toApeLines(e)); // fail now, before anything changes, on an entry that cannot be written
+    const change: LexiconChange = { added: [], replaced: [], unchanged: [], rejected: [], warnings: [] };
+
+    // Entries for the same word and class in one call: the last one wins.
+    const latest = new Map<string, LexEntry>();
+    for (const e of entries) latest.set(entryKey(e), e);
+    const pending: { entry: LexEntry; old?: LexEntry }[] = [];
+    for (const [key, entry] of latest) {
+      const old = lexicon.get(key);
+      if (old && sameEntry(old, entry)) change.unchanged.push(entry);
+      else pending.push(old ? { entry, old } : { entry });
+    }
+    if (!pending.length) return change;
+
+    // Take out what is being replaced, put in the new terms, and see what APE objects to.
+    await workerRemove(pending.flatMap((p) => (p.old ? [p.old] : [])));
+    const { messages } = await workerAdd(pending.map((p) => p.entry));
+
+    const dropped = new Map<LexEntry, string>();
+    const warned = new Map<string, string>();
+    for (const m of messages) warned.set(warnedWord(m.message), m.message);
+    for (const [word, message] of warned) {
+      const group = pending.filter((p) => formsOf(p.entry).includes(word));
+      if (!group.length) { change.warnings.push(message); continue; }
+      // Two new entries sharing a form: keep the first. One entry clashing with something already there (a function
+      // word, another class, an older entry): it does not stay.
+      for (const p of group.slice(group.length === 1 ? 0 : 1)) if (!dropped.has(p.entry)) dropped.set(p.entry, message);
+    }
+    if (validate) {
+      for (const p of pending) {
+        if (dropped.has(p.entry)) continue;
+        for (const group of templatesFor(p.entry)) {
+          let ok = false;
+          for (const sentence of group) {
+            const { diagnostics } = await fromWorker(sentence, {});
+            if (!diagnostics.some((d) => d.severity === "error")) { ok = true; break; }
+          }
+          if (!ok) { dropped.set(p.entry, `does not parse in: ${group.join(" | ")}`); break; }
+        }
+      }
+    }
+    // Undo what could not stay: remove its terms, and put back the entry it was replacing.
+    const toUndo = pending.filter((p) => dropped.has(p.entry));
+    if (toUndo.length) {
+      await workerRemove(toUndo.map((p) => p.entry));
+      const restore = toUndo.flatMap((p) => (p.old ? [p.old] : []));
+      if (restore.length) await workerAdd(restore);
+    }
+    for (const p of pending) {
+      const reason = dropped.get(p.entry);
+      if (reason !== undefined) { change.rejected.push({ entry: p.entry, reason }); continue; }
+      lexicon.set(entryKey(p.entry), p.entry);
+      (p.old ? change.replaced : change.added).push(p.entry);
+    }
+    return change;
+  };
+
+  const lexiconRemove = async (input: LexRef | LexRef[]): Promise<{ removed: LexEntry[] }> => {
+    const refs = Array.isArray(input) ? input : [input];
+    const removed = [...lexicon.values()].filter((e) => refs.some((r) => matchesRef(e, r)));
+    await workerRemove(removed);
+    for (const e of removed) lexicon.delete(entryKey(e));
+    return { removed };
+  };
+
   return {
     addEntries,
+    lexicon: { add: lexiconAdd, remove: lexiconRemove, list: () => [...lexicon.values()] },
     lint,
     synonyms: { add: addRule, remove: (rule) => { rules.delete(ruleKey(rule)); }, list: () => [...rules.values()] },
     async parse(text, opts = {}) {

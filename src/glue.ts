@@ -4,7 +4,7 @@
 export const GLUE = String.raw`% ace-linting glue: turns APE results into plain rows that JavaScript can read.
 % Copyright ace-linting contributors. Licensed under GPL-3.0-only (see LICENSE).
 
-:- module(ace_glue, [lint_rows/6, add_entries/3, ask_rows/5]).
+:- module(ace_glue, [lint_rows/6, add_entries/3, remove_entries/2, ask_rows/5]).
 
 %% lint_rows(+Text, -MessageRows, -TokenRows, -ObjectRows, -EventRows, -PropertyRows)
 %  MessageRows: [[Importance, Scope, Sentence, Token, Subject, Description], ...]
@@ -74,6 +74,13 @@ proof_row(proof(Lines, _Auxiliary), Atoms) :- maplist(token_atom, Lines, Atoms).
 
 message_text(message(_, _, _, Subject, Description), Text) :-
     format(atom(Text), '~w: ~w', [Subject, Description]).
+
+%% remove_entries(+Text, -Count)
+%  Removes the lexicon terms in Text from APE's user lexicon (all copies; a term that is not there is ignored).
+remove_entries(Text, Count) :-
+    setup_call_cleanup(open_string(Text, In), read_entries(In, Entries), close(In)),
+    forall(member(Entry, Entries), retractall(ulex:Entry)),
+    length(Entries, Count).
 
 read_entries(In, Entries) :-
     read_term(In, Term, []),

@@ -37,6 +37,8 @@ export type Engine = {
   parse(text: string): { diagnostics: Diagnostic[]; parsed: ParsedText };
   /** Add APE lexicon terms (one per line, each ending in a period). Returns how many were read and any messages APE logged. */
   addEntries(prologText: string): { count: number; messages: EntryMessage[] };
+  /** Remove APE lexicon terms from the user lexicon. Returns how many terms were read. */
+  removeEntries(prologText: string): { count: number };
   /** Ask RACE. `text` and `question` must already be valid ACE. */
   ask(text: string, question: string): RawAnswer;
 };
@@ -115,6 +117,12 @@ export async function createEngine(input: EngineInput, factory: SwiplFactory): P
         whyNot: (r["WhyNot"] as unknown[]).map(String),
         messages: (r["Messages"] as unknown[]).map(String),
       };
+    },
+    removeEntries(prologText) {
+      const r = run("ace_glue:remove_entries(Text, Count)", { Text: prologText });
+      if (!r.success) throw new Error("APE could not remove the lexicon entries");
+      cache.clear();
+      return { count: Number(r["Count"]) };
     },
     addEntries(prologText) {
       const r = run("ace_glue:add_entries(Text, Count, Messages)", { Text: prologText });

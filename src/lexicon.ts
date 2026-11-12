@@ -124,3 +124,45 @@ export function checkEntry(value: unknown, line?: number): LexEntry {
   if (v["class"] === "verb" && !VALENCIES.has(String(v["valency"]))) throw new LexiconError(`${where}verb needs valency intransitive, transitive or ditransitive`);
   return v as unknown as LexEntry;
 }
+
+/** Names an entry to remove. Without a valency, a verb reference matches every valency of that verb. */
+export type LexRef = { class: LexEntry["class"]; lemma: string; valency?: Valency };
+
+/** What `lexicon.add` did with each entry. */
+export type LexiconChange = {
+  /** New entries now in the lexicon. */
+  added: LexEntry[];
+  /** New entries that took the place of an older entry for the same word. */
+  replaced: LexEntry[];
+  /** Entries identical to ones already present; nothing changed. */
+  unchanged: LexEntry[];
+  /** Entries that were not kept, with the reason; the lexicon is as before for them. */
+  rejected: { entry: LexEntry; reason: string }[];
+  /** APE messages that could not be tied to one entry. */
+  warnings: string[];
+};
+
+/** Entries for the same word and class replace each other: nouns and mass nouns share a slot, verbs have one per valency. */
+export function entryKey(e: LexEntry): string {
+  return `${e.class === "noun-mass" ? "noun" : e.class}${e.class === "verb" ? `/${e.valency}` : ""}:${e.lemma}`;
+}
+
+export function matchesRef(e: LexEntry, ref: LexRef): boolean {
+  const group = (c: LexEntry["class"]) => (c === "noun-mass" ? "noun" : c);
+  return group(e.class) === group(ref.class) && e.lemma === ref.lemma && (e.class !== "verb" || ref.valency === undefined || e.valency === ref.valency);
+}
+
+/** True when two entries produce the same APE terms (the source tag does not matter). */
+export function sameEntry(a: LexEntry, b: LexEntry): boolean {
+  return toApeLines(a).join("\n") === toApeLines(b).join("\n");
+}
+
+/** Every word form an entry defines (the first argument of each term). */
+export function formsOf(e: LexEntry): string[] {
+  return toApeLines(e).map((l) => /^[a-z_]+\(\s*'?([^',()]+)'?\s*,/.exec(l)?.[1] ?? "");
+}
+
+/** APE's lexicon warnings start with the word they are about: "gizmo: This singular noun is defined twice." */
+export function warnedWord(message: string): string {
+  return message.split(":")[0]!.trim();
+}

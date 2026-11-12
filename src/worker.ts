@@ -37,6 +37,9 @@ port.onMessage(async (req) => {
       if (!engine) throw new Error("worker not initialised");
       const r = engine.parse(req.text);
       port.post({ id: req.id, ok: true, type: "lint", diagnostics: r.diagnostics, parsed: r.parsed });
+    } else if (req.type === "removeEntries") {
+      if (!engine) throw new Error("worker not initialised");
+      port.post({ id: req.id, ok: true, type: "removeEntries", count: engine.removeEntries(req.prologText).count });
     } else if (req.type === "ask") {
       if (!engine) throw new Error("worker not initialised");
       port.post({ id: req.id, ok: true, type: "ask", raw: engine.ask(req.text, req.question) });

@@ -25,7 +25,7 @@ await ace.dispose();
 
 - `lint(text)` returns diagnostics with character ranges for editors (wavy underlines). `parse(text)` returns what APE understood.
 - `ask({ text, question })` returns `answered` (with the proof, numbered by your own sentences), `unknown` (it cannot be proved; this never means "no"), `invalid` (the text or question is not ACE) or `timeout`.
-- `lexicon`, `addEntries` and a CC0 core vocabulary add words; `synonyms` adds rules such as "buy implies purchase" that show up in proofs; `use(plugin)` adds checks such as `typeCheck`. See [docs/plugins.md](docs/plugins.md) and [docs/question-synonyms.md](docs/question-synonyms.md).
+- `ace.lexicon.add/remove/list` let users add and remove words safely ([docs/user-lexicon.md](docs/user-lexicon.md)), alongside a CC0 core vocabulary; `synonyms` adds rules such as "buy implies purchase" that show up in proofs; `use(plugin)` adds checks such as `typeCheck`. See [docs/plugins.md](docs/plugins.md) and [docs/question-synonyms.md](docs/question-synonyms.md).
 - In a browser, see [docs/browser.md](docs/browser.md): a Vite build, a demo, and an IndexedDB cache for the downloaded files.
 
 ## Develop

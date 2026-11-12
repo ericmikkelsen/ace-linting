@@ -8,6 +8,7 @@ export type WorkerRequest =
   | { id: number; type: "init"; ape: FileMap; race?: FileMap }
   | { id: number; type: "lint"; text: string }
   | { id: number; type: "addEntries"; prologText: string }
+  | { id: number; type: "removeEntries"; prologText: string }
   | { id: number; type: "ask"; text: string; question: string };
 
 /** Messages from the worker back to the main thread. */
@@ -15,5 +16,6 @@ export type WorkerResponse =
   | { id: number; ok: true; type: "init" }
   | { id: number; ok: true; type: "lint"; diagnostics: Diagnostic[]; parsed: ParsedText }
   | { id: number; ok: true; type: "addEntries"; count: number; messages: EntryMessage[] }
+  | { id: number; ok: true; type: "removeEntries"; count: number }
   | { id: number; ok: true; type: "ask"; raw: RawAnswer }
   | { id: number; ok: false; error: string };
