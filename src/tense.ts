@@ -26,12 +26,17 @@ const looksPast = (w: string) => IRREGULAR.has(w) || (w.length > 4 && w.endsWith
 const HOW = "ACE has only the present tense.";
 
 /**
- * Is `word` (the word APE stopped at) a tense that ACE lacks? `previous` is the word before it.
+ * Is `word` (the word APE stopped at) a tense that ACE lacks? `previous` is the word before it and `opening` the first word
+ * of the sentence (for questions that start with the helper).
  * Returns what to tell the user, or undefined when the word is not about tense.
  */
-export function describeTense(word: string, previous?: string): TenseHint | undefined {
+export function describeTense(word: string, previous?: string, opening?: string): TenseHint | undefined {
   const w = word.toLowerCase();
   const p = previous?.toLowerCase();
+  // A question puts the helper first: "Has John bought a card?", "Is John buying a card?"
+  const o = opening?.toLowerCase();
+  if (o && PERFECT_HELPERS.has(o) && o !== w && looksPast(w)) return { kind: "perfect", message: `'${opening} ... ${word}' is a perfect tense, and ${HOW}` };
+  if (o && PROGRESSIVE_HELPERS.has(o) && o !== w && w.length > 4 && w.endsWith("ing")) return { kind: "progressive", message: `'${opening} ... ${word}' is a progressive form, and ${HOW}` };
   if (FUTURE.has(w)) return { kind: "future", message: `'${word}' marks the future, and ${HOW}` };
   if (PAST_HELPERS.has(w)) return { kind: "past", message: `'${word}' is a past tense, and ${HOW}` };
   if (p && PERFECT_HELPERS.has(p) && looksPast(w)) return { kind: "perfect", message: `'${previous} ${word}' is a perfect tense, and ${HOW}` };

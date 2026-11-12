@@ -116,3 +116,33 @@ test("a person called Will is still a valid proper name when nothing else is wro
   const warning = (await ace.lint("Will buys a card.")).diagnostics.find((d) => d.severity === "warning");
   assert.match(warning?.message ?? "", /treated as a proper name/);
 });
+
+// --- questions with the helper first: "Has John bought a card?", "Is John buying a card?"
+
+test("describeTense recognises a participle after a helper that opens the sentence", () => {
+  assert.equal(describeTense("bought", "John", "Has")?.kind, "perfect");
+  assert.equal(describeTense("called", "Maria", "Have")?.kind, "perfect");
+  assert.equal(describeTense("buying", "John", "Is")?.kind, "progressive");
+  assert.equal(describeTense("card", "a", "Has"), undefined);
+});
+
+test("'Has John bought a card?' is explained as a perfect tense, pointing at 'bought'", async () => {
+  const text = "Has John bought a card?";
+  const hint = (await errors(text)).find((d) => /perfect/.test(d.message));
+  assert.ok(hint, "a perfect-tense message");
+  assert.equal(slice(text, hint), "bought");
+  assert.match(hint.message, /only the present tense/);
+  assert.match(hint.message, /Has/);
+});
+
+test("'Is John buying a card?' is explained as a progressive form", async () => {
+  const text = "Is John buying a card?";
+  const hint = (await errors(text)).find((d) => /progressive/.test(d.message));
+  assert.ok(hint, "a progressive message");
+  assert.equal(slice(text, hint), "buying");
+});
+
+test("ordinary questions are not mistaken for tenses", async () => {
+  assert.deepEqual(await errors("Is John happy?"), []);
+  assert.deepEqual(await errors("Does John buy a card?"), []);
+});

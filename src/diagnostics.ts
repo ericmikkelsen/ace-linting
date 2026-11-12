@@ -76,7 +76,7 @@ export function toDiagnostics(text: string, messages: ApeMessage[], options: Map
       if (!trusted || hits.length === 0) out.push(fallback(message));
       else for (const t of hits) {
         const range = shift(sentence, t);
-        const tense = describeTense(t.text, tokens[tokens.indexOf(t) - 1]?.text);
+        const tense = describeTense(t.text, tokens[tokens.indexOf(t) - 1]?.text, tokens[0]?.text);
         const plain: Diagnostic = { ...base, message, range, ...(suggestion ? { suggestion } : {}) };
         if (tense) {
           const apeHint = /^Use the prefix/.test(m.description) ? ` If it is not a verb form: ${m.description}` : "";
@@ -113,8 +113,8 @@ export function toDiagnostics(text: string, messages: ApeMessage[], options: Map
       // APE reads "has bought" as "has" plus a noun and stops at the next word, so also look one word back for a
       // helper plus participle ("has bought", "is buying").
       const back = tokens[at - 1];
-      const earlier = back ? describeTense(back.text, tokens[at - 2]?.text) : undefined;
-      const here = describeTense(token.text, tokens[at - 1]?.text);
+      const earlier = back ? describeTense(back.text, tokens[at - 2]?.text, tokens[0]?.text) : undefined;
+      const here = describeTense(token.text, tokens[at - 1]?.text, tokens[0]?.text);
       const found = here ? { tense: here, at: token } : earlier && (earlier.kind === "perfect" || earlier.kind === "progressive") && back ? { tense: earlier, at: back } : undefined;
       if (found) {
         const r = shift(sentence, found.at);
