@@ -25,3 +25,7 @@ When describing applications based on VerbNet, cite: Kipper, Korhonen, Ryant and
 ## Core vocabulary (source tag `core`) and inflection overrides
 
 Written by the ace-linting authors and dedicated to the public domain (CC0 1.0): `lexicon/core/`, and `lexicon/oewn/overrides.json`.
+
+## Synonym index (generated)
+
+`lexicon/dist/synonyms.json`, built by `scripts/build-synonyms.ts`, contains synonym sets and definitions from Open English WordNet 2025 and is covered by the same notices as above (CC BY 4.0 and the Princeton WordNet license; credit Princeton WordNet and the Open English WordNet team).

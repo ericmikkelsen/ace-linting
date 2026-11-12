@@ -11,7 +11,8 @@
     "build:lexicon": "node scripts/build-lexicon.ts",
     "build": "tsc -p . --noEmit false",
     "pin:upstream": "node scripts/pin-upstream.ts",
-    "fetch:upstream": "node scripts/fetch-upstream.ts"
+    "fetch:upstream": "node scripts/fetch-upstream.ts",
+    "build:synonyms": "node scripts/build-synonyms.ts"
   },
   "dependencies": {
     "swipl-wasm": "8.3.0"

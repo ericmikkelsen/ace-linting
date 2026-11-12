@@ -71,7 +71,7 @@ export type Unmatched = { wordClass: string; word: string };
 export type AskResult =
   | { status: "answered"; answers: Substitution[]; proofs: Proof[]; messages: string[] }
   /** Nothing can be proved from the text. This never means "no". */
-  | { status: "unknown"; unmatched: Unmatched[]; messages: string[] }
+  | { status: "unknown"; unmatched: Unmatched[]; messages: string[]; suggestions: Suggestion[] }
   /** The text or the question is not valid ACE. */
   | { status: "invalid"; text: Diagnostic[]; question: Diagnostic[] }
   | { status: "timeout" };
@@ -104,4 +104,18 @@ export type ParsedText = { text: string; sentences: SentenceSpan[]; objects: Par
 export type Plugin = {
   name: string;
   afterParse?(parsed: ParsedText): Diagnostic[] | void | Promise<Diagnostic[] | void>;
+};
+
+/**
+ * A synonym that appears in the text for a word of the question that RACE could not match.
+ * Accepting it means calling `ace.synonyms.add(suggestion.rule)`.
+ */
+export type Suggestion = {
+  /** The word from the question. */
+  word: string;
+  /** The word from the text that may mean the same. */
+  replacement: string;
+  /** WordNet's definition of the sense, so the user can tell senses apart. */
+  gloss: string;
+  rule: SynonymRule;
 };

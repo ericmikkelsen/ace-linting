@@ -7,10 +7,14 @@ import { toApeLines, checkEntry, type LexEntry } from "./lexicon.ts";
 import { splitSentences } from "./tokenize.ts";
 import { selectRelevant, contentStems, stem } from "./select.ts";
 import { compileRule, ruleKey, SynonymError } from "./synonyms.ts";
+import { suggest } from "./suggest.ts";
+import type { SynonymIndex } from "./synonym-index.ts";
 import { toAskResult } from "./ask.ts";
 import type { EntryMessage } from "./engine.ts";
 
-export type { Diagnostic, DiagnosticCode, Range, Severity, ApeMessage, AskResult, Proof, ProofAxiom, Substitution, Unmatched, ParsedText, ParsedEvent, ParsedArg, ParsedObject, ParsedProperty, Plugin, SynonymRule } from "./types.ts";
+export type { Diagnostic, DiagnosticCode, Range, Severity, ApeMessage, AskResult, Proof, ProofAxiom, Substitution, Unmatched, ParsedText, ParsedEvent, ParsedArg, ParsedObject, ParsedProperty, Plugin, SynonymRule, Suggestion } from "./types.ts";
+export { buildIndex, type SynonymIndex, type RawSynset } from "./synonym-index.ts";
+export { suggest } from "./suggest.ts";
 export { typeCheck, type TypeSchema } from "./plugins/types.ts";
 export type { FileMap } from "./engine.ts";
 export { debounce } from "./debounce.ts";
@@ -41,6 +45,11 @@ export type AceOptions = {
   raceDir?: string;
   /** Lexicon entries to load at start. */
   lexicon?: LexEntry[];
+  /**
+   * WordNet synonym sets, used to suggest synonym rules when a question comes back unknown. Give the index or a function
+   * that loads it; the function is called once, on the first unknown answer. Without it, `suggestions` is empty.
+   */
+  synonymIndex?: SynonymIndex | (() => Promise<SynonymIndex>);
 };
 
 export type AskOptions = {
@@ -299,6 +308,12 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
     }
   };
 
+  let indexPromise: Promise<SynonymIndex> | undefined;
+  const getIndex = () => {
+    const src = options.synonymIndex;
+    if (!src) return undefined;
+    return (indexPromise ??= Promise.resolve(typeof src === "function" ? src() : src));
+  };
   const rules = new Map<string, SynonymRule>();
   const addRule = async (rule: SynonymRule) => {
     let sentences: string[];
@@ -376,6 +391,10 @@ export async function createAce(options: AceOptions = {}): Promise<Ace> {
       if (result?.status === "unknown" && chosen.length < all.length) {
         const second = attempt(all);
         result = await askOnce(second.text, question, second.map, timeoutMs);
+      }
+      if (result?.status === "unknown") {
+        const index = await getIndex();
+        if (index) result = { ...result, suggestions: suggest(result.unmatched, text, index) };
       }
       return result ?? { status: "timeout" };
     },

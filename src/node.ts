@@ -42,3 +42,8 @@ export function fileStore(dir: string): Store {
 export function defaultCacheDir(): string {
   return process.env["ACE_LINTING_CACHE"] ?? path.join(os.homedir(), ".cache", "ace-linting");
 }
+
+/** Read a synonym index built by `npm run build:synonyms`. */
+export async function loadSynonymIndex(file: string): Promise<import("./synonym-index.ts").SynonymIndex> {
+  return JSON.parse(await fs.promises.readFile(file, "utf8")) as import("./synonym-index.ts").SynonymIndex;
+}

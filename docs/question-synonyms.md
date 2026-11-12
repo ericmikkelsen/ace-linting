@@ -1,6 +1,6 @@
 # Design: synonyms and suggestions for questions
 
-Status: S1 and S2 are built (`ace.synonyms`, proofs labeled); S3 to S6 are still design. The Ask API (Task 4) is done. Facts marked "verified" come from running RACE under `swipl-wasm` on 2026-11-11 with our generated lexicon loaded.
+Status: S1 to S4 are built (rules, proof labels, the synonym index and suggestions). S5 (synonym-aware sentence selection) and S6 (ditransitive, adverb and mixed-subject cases) are still design. The Ask API (Task 4) is done. Facts marked "verified" come from running RACE under `swipl-wasm` on 2026-11-11 with our generated lexicon loaded.
 
 ## Problem
 
@@ -57,7 +57,9 @@ After `ask` returns unknown, a separate step looks at the unmatched words from `
 3. Offer each as a suggestion with its WordNet definition so the user can tell the sense apart: "Did you mean 'buys'? (to obtain by paying)". Accepting it adds a synonym rule.
 4. Show at most three per unmatched word, ordered by how many synonym sets they share with the question word.
 
-The synonym data comes from Open English WordNet's synset files (each synset has `members` and a `definition`, verified in the downloaded data). We would build a compact index at build time, limited to words in our lexicon and to sets with at least two members, and load it lazily on first suggestion. Its size is unmeasured.
+The synonym data comes from Open English WordNet's synset files (each synset has `members` and a `definition`). `npm run build:synonyms` builds a compact index limited to words in our generated lexicon and to sets with at least two members. Measured: 23,199 sets (24,436 nouns, 6,260 verbs, 11,524 adjectives), 2.9 MB raw and 0.98 MB gzipped. `createAce({ synonymIndex })` takes the index or a loader that is called once, on the first unknown answer.
+
+Tried against the real index and lexicon: buy => purchase, client => customer, urgent => pressing and read => study were suggested and, once accepted, made the question answerable. "Does a manager arrange a meeting?" from "schedules" got no suggestion (WordNet does not put the two in one set). The read => study sense ("be a student of a certain subject") shows why the definition is shown: the user decides.
 
 ### 3. Fuzzy matching, narrowly
 
@@ -107,7 +109,7 @@ Suggestions are computed by an optional module (`ace-linting/suggest`) so the sy
 
 1. **Sense ambiguity.** Suggestions show definitions for this reason; accepted rules are the user's responsibility. Should a rule record its sense so the editor can show it later?
 2. **Many rules slow RACE.** Each rule adds an axiom to the proof search. Only include rules whose words occur in the question or the text.
-3. **Size of the synonym index** is unmeasured (WordNet has about 107,000 synsets). Needs a measurement and a lazy-loading plan for the browser.
+3. **Size of the synonym index**: measured at 0.98 MB gzipped; it loads lazily through the `synonymIndex` loader.
 4. **People versus things.** A verb rule written with `somebody` covers people; things need `something`. Do we emit both, and does emitting both cause duplicate answers? Needs a test.
 5. **Ditransitive verbs** failed in the one case tried; cause unknown.
 6. **Licensing:** the index is derived from Open English WordNet, so it carries the same notices as the lexicon (CC BY 4.0 and the Princeton WordNet license).

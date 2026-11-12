@@ -17,7 +17,7 @@ export function toAskResult(raw: RawAnswer, sentenceMap: (number | SynonymRule)[
       const at = entry.indexOf(": ");
       return at < 0 ? { wordClass: "", word: entry } : { wordClass: entry.slice(0, at), word: entry.slice(at + 2) };
     });
-    return { status: "unknown", unmatched, messages: raw.messages };
+    return { status: "unknown", unmatched, messages: raw.messages, suggestions: [] };
   }
 
   const answers: Substitution[] = [];
